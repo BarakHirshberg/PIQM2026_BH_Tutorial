@@ -97,6 +97,57 @@ def reweighted_fermionic_energy(filename, skip_steps=0):
     return mean_sign, fermionic_total
 
 
+def fermionic_trajectory_estimate(filename, skip_steps=0):
+    """Per-trajectory quantities for the weighted multi-trajectory estimator.
+
+    Following the SI of Hirshberg, Invernizzi & Parrinello (*J. Chem. Phys.*
+    152, 171102 (2020)), each trajectory contributes:
+
+    * ``E_j`` -- its reweighted fermionic energy ``<eps*s>_j / <s>_j``;
+    * ``W_j`` -- its total weight in the reweighted ensemble, i.e. the *sum*
+      (not the mean) of the instantaneous signs over the trajectory.
+
+    Returns ``(E_j, W_j, mean_sign_j)``.
+    """
+    o = read_ipi_output(filename)
+    sign = o["fermionic_sign"][skip_steps:]
+    total = -o["virial_fq"][skip_steps:] + o["potential"][skip_steps:]
+
+    w_j = np.sum(sign)                       # W_j = sum of instantaneous signs
+    e_j = np.sum(total * sign) / w_j         # E_j = <eps*s>_j / <s>_j
+    return e_j, w_j, np.mean(sign)
+
+
+def weighted_average(values, weights=None):
+    """Weighted mean and its statistical error over independent trajectories.
+
+    Implements Eqs. 4-6 of the SI referenced in
+    :func:`fermionic_trajectory_estimate`. With ``weights=None`` (or all-equal
+    weights) it reduces to the ordinary mean with standard error
+    ``std/sqrt(M)`` -- the correct treatment for the bosonic energies and for
+    the average sign, where every trajectory carries equal weight.
+
+    Returns ``(mean, error, n_eff)`` where ``n_eff`` is the effective sample
+    size ``(sum W)^2 / sum W^2`` (equal to the number of trajectories when they
+    are all similarly converged, and smaller when a few dominate the weight).
+    """
+    values = np.asarray(values, dtype=float)
+    if weights is None:
+        weights = np.ones_like(values)
+    weights = np.asarray(weights, dtype=float)
+
+    w_sum = weights.sum()
+    mean = np.sum(weights * values) / w_sum
+    n_eff = w_sum**2 / np.sum(weights**2)
+
+    if n_eff <= 1:
+        return mean, float("nan"), n_eff
+
+    var = (n_eff / (n_eff - 1)) * np.sum(weights * (values - mean) ** 2) / w_sum
+    error = np.sqrt(var / n_eff)
+    return mean, error, n_eff
+
+
 # --------------------------------------------------------------------------- #
 #  Analytical reference energies (exact, non-interacting harmonic trap)        #
 # --------------------------------------------------------------------------- #

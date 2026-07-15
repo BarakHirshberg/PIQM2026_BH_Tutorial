@@ -97,8 +97,8 @@ def run_one(xml_name, seed, is_fermionic):
 
         out = os.path.join(tmp, "data.out")
         if is_fermionic:
-            sign, energy = analysis.reweighted_fermionic_energy(out, SKIP)
-            return energy, sign
+            # per-trajectory E_j, W_j (sum of signs), mean sign
+            return analysis.fermionic_trajectory_estimate(out, SKIP)
         else:
             return analysis.mean_energies(out, SKIP)["total"], None
     finally:
@@ -115,20 +115,46 @@ def main():
         for label, xml, sys_type, temp, is_fer in cases:
             t0 = time.time()
             results = list(pool.map(lambda s: run_one(xml, s, is_fer), seeds))
-            energies = np.array([r[0] for r in results])
-            mean = energies.mean()
-            sem = energies.std(ddof=1) / np.sqrt(len(energies))
             ref = analysis.analytical_energy(temp, sys_type)
-            extra = ""
+
             if is_fer:
-                signs = np.array([r[1] for r in results])
-                extra = f"  <sign> = {signs.mean():.3f} +/- {signs.std(ddof=1)/np.sqrt(len(signs)):.3f}"
-            rows.append((label, mean, sem, ref))
-            print(
-                f"{label:20s} {mean*1e3:7.4f} +/- {sem*1e3:6.4f} mHa   "
-                f"(analytical {ref*1e3:7.4f} mHa){extra}   "
-                f"[{len(energies)} traj, {time.time()-t0:.0f}s]"
-            )
+                # results = list of (E_j, W_j, mean_sign_j)
+                E = np.array([r[0] for r in results])
+                W = np.array([r[1] for r in results])
+                signs = np.array([r[2] for r in results])
+
+                M = len(E)
+                # naive: unweighted mean of per-trajectory ratios, std/sqrt(M)
+                naive_mean, naive_err, _ = analysis.weighted_average(E, None)
+                # SI: weight each trajectory by its total sign W_j (Eqs. 4-6)
+                w_mean, w_err, n_eff = analysis.weighted_average(E, W)
+                # apples-to-apples: same weighted mean, but pretend all M count
+                # equally (error = sigma/sqrt(M)) vs the proper sigma/sqrt(n_eff)
+                sigma = w_err * np.sqrt(n_eff)
+                err_assume_M = sigma / np.sqrt(M)
+                # average sign is itself an unweighted average over trajectories
+                s_mean, s_err, _ = analysis.weighted_average(signs, None)
+
+                rows.append((label, w_mean, w_err, ref))
+                print(
+                    f"{label:20s}   [M={M} traj, {time.time()-t0:.0f}s]\n"
+                    f"    naive mean-of-ratios : {naive_mean*1e3:7.4f} +/- {naive_err*1e3:6.4f} mHa "
+                    f"(biased by low-weight trajectories)\n"
+                    f"    SI weighted mean     : {w_mean*1e3:7.4f} mHa   (Eq. 4)\n"
+                    f"      error assuming n=M : +/- {err_assume_M*1e3:6.4f} mHa\n"
+                    f"      error using n_eff  : +/- {w_err*1e3:6.4f} mHa   "
+                    f"(n_eff = {n_eff:.1f} of {M}; larger by x{np.sqrt(M/n_eff):.2f})\n"
+                    f"    <sign> = {s_mean:.3f} +/- {s_err:.3f}    analytical {ref*1e3:.4f} mHa"
+                )
+            else:
+                energies = np.array([r[0] for r in results])
+                mean, err, _ = analysis.weighted_average(energies, None)
+                rows.append((label, mean, err, ref))
+                print(
+                    f"{label:20s} {mean*1e3:7.4f} +/- {err*1e3:6.4f} mHa   "
+                    f"(analytical {ref*1e3:7.4f} mHa)   "
+                    f"[{len(energies)} traj, {time.time()-t0:.0f}s]"
+                )
 
     # Markdown table for pasting into the recipe / README
     print("\n### Markdown table\n")
