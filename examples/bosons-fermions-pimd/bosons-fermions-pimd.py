@@ -232,6 +232,48 @@ ax.text(0.02, 0.02, "*fermions at 30 K, others at 17.4 K",
 
 
 # %%
+# Convergence: averaging over independent trajectories
+# ----------------------------------------------------
+#
+# A single short run is noisy, but the dynamics are unbiased (NVT with a proper
+# thermostat), so the average over several **independent** trajectories -- each
+# started from a different random seed -- converges towards the exact value, and
+# the spread across trajectories gives a proper standard error of the mean.
+#
+# The script ``reference/run_convergence.py`` runs this study (10 trajectories
+# per case, parallelised across CPU cores, using the *same* short settings as
+# above). Running it reproduces the following table (energies in mHa):
+#
+# ===================  ==========================  =================
+# case                 trajectory average           analytical
+# ===================  ==========================  =================
+# 3 distinguishable    0.643 :math:`\\pm` 0.017      0.651
+# 3 bosons             0.569 :math:`\\pm` 0.017      0.580
+# 2 bosons + 1 dist    0.606 :math:`\\pm` 0.018      0.624
+# 3 fermions           1.10  :math:`\\pm` 0.02       0.912
+# ===================  ==========================  =================
+#
+# (10 trajectories per case; the fermionic row uses 15 longer trajectories of
+# 10000 steps -- ``N_TRAJ=15 STEPS=10000 CASE_FILTER=fermion``.)
+#
+# The three distinguishable/bosonic cases now agree with the analytical result
+# within about one standard error -- averaging over trajectories removes the
+# noise of a single short run.
+#
+# The **fermionic** case is fundamentally harder. Its reweighting estimator has
+# a huge variance because the average sign is small (:math:`\\langle s \\rangle
+# \\approx 0.3`) -- the **sign problem** -- so a *single* short run is almost
+# meaningless. Averaging trajectories shrinks the statistical error dramatically
+# (from :math:`\\pm 0.4` for 10 short runs to :math:`\\pm 0.02` for 15 longer
+# ones), and the estimate stabilises near :math:`1.1\\,\\mathrm{mHa}` -- the same
+# value the original 2023 tutorial reported (:math:`1.16\\,\\mathrm{mHa}` at
+# :math:`2.3\\times10^6` steps). Note this sits *above* the exact analytical
+# value: fully closing that gap needs both more beads and far more sampling than
+# a couple-minute tutorial allows -- a faithful illustration of why fermions are
+# hard.
+
+
+# %%
 # Assignment: energy vs temperature
 # ---------------------------------
 #

@@ -89,7 +89,9 @@ examples/bosons-fermions-pimd/
 ├── environment.yml             # conda/pip dependencies
 ├── bosons-fermions-pimd.py     # the tutorial (sphinx-gallery format)
 ├── analysis.py                 # output reader + analytical references + fermionic reweighting
-└── data/                       # the four i-PI input files
+├── data/                       # the four i-PI input files
+└── reference/
+    └── run_convergence.py      # offline: N trajectories/case → mean ± error table
 ```
 
 The example directory follows the
@@ -97,6 +99,51 @@ The example directory follows the
 conventions (a `README.rst`, an `environment.yml`, and a sphinx-gallery `.py`
 that renders to a notebook + HTML page), so it can be contributed upstream by
 copying it into `examples/` of that repository.
+
+## Convergence and error bars
+
+A single short run is deliberately noisy. Because the dynamics are unbiased
+(NVT with a thermostat), averaging several **independent** trajectories
+converges toward the exact value and gives a proper standard error. The helper
+`reference/run_convergence.py` runs this study in parallel across your CPU
+cores:
+
+```bash
+cd examples/bosons-fermions-pimd
+python reference/run_convergence.py          # 10 trajectories per case
+```
+
+With 10 trajectories (same short settings as the tutorial) the energies land
+within about one standard error of the analytical values (mHa):
+
+| Case | trajectory average | analytical |
+|------|--------------------|------------|
+| 3 distinguishable | 0.643 ± 0.017 | 0.651 |
+| 3 bosons | 0.569 ± 0.017 | 0.580 |
+| 2 bosons + 1 dist | 0.606 ± 0.018 | 0.624 |
+| 3 fermions | 1.10 ± 0.02 | 0.912 |
+
+(10 trajectories per case; the fermion row uses 15 longer trajectories of
+10 000 steps.) The three distinguishable/bosonic cases land within ~1σ of the
+exact values — averaging over trajectories removes the noise of a single run.
+
+The **fermionic** estimator is fundamentally harder: its variance is huge
+because the average sign is small (⟨s⟩ ≈ 0.3) — the **sign problem** — so a
+single short run is nearly meaningless. Averaging trajectories collapses the
+statistical error (±0.4 for 10 short runs → ±0.02 for 15 longer ones), and the
+value stabilizes near 1.1 mHa — matching the original 2023 tutorial (1.16 mHa
+at 2.3M steps). Note it sits *above* the exact 0.912 mHa: closing that gap
+needs more beads and far more sampling than a couple-minute tutorial allows.
+Reproduce the fermion row with:
+
+```bash
+N_TRAJ=15 STEPS=10000 MAX_CONCURRENT=12 CASE_FILTER=fermion python reference/run_convergence.py
+```
+
+For production-scale fermionic runs the compiled **f90 driver** (`i-pi-driver
+-m harm3d`, built from the i-PI source with `make` in `drivers/f90`) is several
+times faster than the Python driver and is the practical choice; the tutorial
+uses the Python driver only to stay pip-installable.
 
 ## Background and references
 
