@@ -19,6 +19,9 @@ docs/build/
 _build/
 *.zip
 
+# the paper SI PDF is kept locally for reference but not redistributed
+SM.pdf
+
 # python
 __pycache__/
 *.py[cod]

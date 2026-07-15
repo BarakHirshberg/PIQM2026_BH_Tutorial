@@ -121,23 +121,41 @@ within about one standard error of the analytical values (mHa):
 | 3 distinguishable | 0.643 ± 0.017 | 0.651 |
 | 3 bosons | 0.569 ± 0.017 | 0.580 |
 | 2 bosons + 1 dist | 0.606 ± 0.018 | 0.624 |
-| 3 fermions | 1.10 ± 0.02 | 0.912 |
+| 3 fermions | 1.11 ± 0.09 (weighted) | 0.912 |
 
-(10 trajectories per case; the fermion row uses 15 longer trajectories of
-10 000 steps.) The three distinguishable/bosonic cases land within ~1σ of the
-exact values — averaging over trajectories removes the noise of a single run.
+(10 trajectories per case.) The three distinguishable/bosonic cases land within
+~1σ of the exact values — for equal-weight data, averaging over trajectories
+just removes the noise of a single run.
 
-The **fermionic** estimator is fundamentally harder: its variance is huge
-because the average sign is small (⟨s⟩ ≈ 0.3) — the **sign problem** — so a
-single short run is nearly meaningless. Averaging trajectories collapses the
-statistical error (±0.4 for 10 short runs → ±0.02 for 15 longer ones), and the
-value stabilizes near 1.1 mHa — matching the original 2023 tutorial (1.16 mHa
-at 2.3M steps). Note it sits *above* the exact 0.912 mHa: closing that gap
-needs more beads and far more sampling than a couple-minute tutorial allows.
-Reproduce the fermion row with:
+### Error estimation for fermions
+
+The **fermionic** estimator is fundamentally harder (small average sign ⟨s⟩ ≈
+0.3 — the **sign problem**), and its error must be estimated carefully. Naively
+averaging the per-trajectory reweighted energies with `std/√M` is *biased*: a
+trajectory that sampled mostly low-weight configurations gives a wild ratio but
+counts equally. Following the SI of Hirshberg, Invernizzi & Parrinello (*JCP*
+**152**, 171102, 2020), each trajectory is weighted by its total sign
+`W_j = Σ s`, and an effective sample size `n_eff = (Σ W)² / Σ W²` is used:
+
+```
+Ē_F = Σ Wⱼ Eⱼ / Σ Wⱼ ,   σ² = n/(n−1) · Σ Wⱼ(Eⱼ−Ē_F)²/Σ Wⱼ ,   error = σ/√n_eff
+```
+
+Post-processing 20 trajectories × 5000 steps (analytical 0.912 mHa):
+
+| estimator | mean (mHa) | error (mHa) |
+|-----------|-----------|-------------|
+| naive mean-of-ratios | 1.45 (biased high) | ± 0.32 |
+| SI weighted, assuming n = M | 1.11 | ± 0.078 |
+| SI weighted, using n_eff | 1.11 | ± 0.087 (n_eff = 16 of 20) |
+
+The weighting **removes the bias** in the mean, and using `n_eff` gives an
+**honest, ~12% larger** error bar than assuming all M trajectories count fully.
+`weighted_average()` in `analysis.py` reduces to the plain mean + `std/√M` when
+weights are equal, so the same code handles bosons and the average sign. Run:
 
 ```bash
-N_TRAJ=15 STEPS=10000 MAX_CONCURRENT=12 CASE_FILTER=fermion python reference/run_convergence.py
+N_TRAJ=20 STEPS=5000 MAX_CONCURRENT=12 CASE_FILTER=fermion python reference/run_convergence.py
 ```
 
 For production-scale fermionic runs the compiled **f90 driver** (`i-pi-driver

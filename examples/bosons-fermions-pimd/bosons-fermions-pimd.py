@@ -250,27 +250,67 @@ ax.text(0.02, 0.02, "*fermions at 30 K, others at 17.4 K",
 # 3 distinguishable    0.643 :math:`\\pm` 0.017      0.651
 # 3 bosons             0.569 :math:`\\pm` 0.017      0.580
 # 2 bosons + 1 dist    0.606 :math:`\\pm` 0.018      0.624
-# 3 fermions           1.10  :math:`\\pm` 0.02       0.912
+# 3 fermions           see next section             0.912
 # ===================  ==========================  =================
 #
-# (10 trajectories per case; the fermionic row uses 15 longer trajectories of
-# 10000 steps -- ``N_TRAJ=15 STEPS=10000 CASE_FILTER=fermion``.)
+# (10 trajectories per case; the fermionic case needs the weighted estimator of
+# the next section.)
 #
 # The three distinguishable/bosonic cases now agree with the analytical result
-# within about one standard error -- averaging over trajectories removes the
-# noise of a single short run.
+# within about one standard error -- for equal-weight data (bosons, and the
+# average sign) averaging over trajectories simply removes the noise of a single
+# short run. The **fermionic** row is different and needs more care, as we now
+# explain.
+
+
+# %%
+# Error estimation for fermions: weight trajectories by the sign
+# --------------------------------------------------------------
 #
-# The **fermionic** case is fundamentally harder. Its reweighting estimator has
-# a huge variance because the average sign is small (:math:`\\langle s \\rangle
-# \\approx 0.3`) -- the **sign problem** -- so a *single* short run is almost
-# meaningless. Averaging trajectories shrinks the statistical error dramatically
-# (from :math:`\\pm 0.4` for 10 short runs to :math:`\\pm 0.02` for 15 longer
-# ones), and the estimate stabilises near :math:`1.1\\,\\mathrm{mHa}` -- the same
-# value the original 2023 tutorial reported (:math:`1.16\\,\\mathrm{mHa}` at
-# :math:`2.3\\times10^6` steps). Note this sits *above* the exact analytical
-# value: fully closing that gap needs both more beads and far more sampling than
-# a couple-minute tutorial allows -- a faithful illustration of why fermions are
-# hard.
+# For fermions a *single* run gives one number with no error bar, and naively
+# averaging the per-trajectory reweighted energies
+# :math:`E_j = \\langle \\varepsilon\\, s\\rangle_j / \\langle s\\rangle_j` with a
+# plain :math:`\\mathrm{std}/\\sqrt{M}` is **biased**: a trajectory that happened
+# to sample mostly low-weight (small-sign) configurations yields a wild ratio,
+# yet counts as much as a well-converged one.
+#
+# The fix (SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* **152**,
+# 171102 (2020)) is to weight each trajectory by its total weight in the
+# reweighted ensemble, :math:`W_j = \\sum_\\mathrm{steps} s` (the sum of the
+# instantaneous signs), and to use an *effective* sample size:
+#
+# .. math::
+#
+#    \\bar E_F = \\frac{\\sum_j W_j E_j}{\\sum_j W_j}, \\qquad
+#    n_\\mathrm{eff} = \\frac{\\left(\\sum_j W_j\\right)^2}{\\sum_j W_j^2}, \\qquad
+#    \\sigma_E^2 = \\frac{n_\\mathrm{eff}}{n_\\mathrm{eff}-1}
+#                 \\frac{\\sum_j W_j (E_j - \\bar E_F)^2}{\\sum_j W_j},
+#
+# with statistical error :math:`\\sigma_E/\\sqrt{n_\\mathrm{eff}}`. When all
+# weights are equal this reduces to the ordinary mean and
+# :math:`\\mathrm{std}/\\sqrt{M}`, which is why the bosonic rows above need no
+# special treatment. Both estimators are implemented in ``analysis.py``
+# (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) and used by
+# ``reference/run_convergence.py``.
+#
+# For 20 trajectories of 5000 steps the two estimators give (analytical
+# 0.912 mHa):
+#
+# ==========================  =====================  =============================
+# estimator                   mean (mHa)             error (mHa)
+# ==========================  =====================  =============================
+# naive mean-of-ratios        1.45  (biased high)    :math:`\\pm 0.32`
+# SI weighted, assuming n=M    1.11                   :math:`\\pm 0.078`
+# SI weighted, using n_eff     1.11                   :math:`\\pm 0.087`  (n_eff=16 of 20)
+# ==========================  =====================  =============================
+#
+# Two lessons: the weighting **removes the bias** in the mean (1.45 -> 1.11),
+# and using the effective sample size gives an **honest, ~12% larger** error bar
+# (:math:`\\sqrt{M/n_\\mathrm{eff}}`) than pretending all :math:`M` trajectories
+# are equally informative. The residual gap to the exact 0.912 mHa is physical
+# (finite beads and the slow convergence of the sign) -- closing it needs far
+# more sampling than a couple-minute tutorial allows, which is the whole point
+# of the sign problem.
 
 
 # %%
