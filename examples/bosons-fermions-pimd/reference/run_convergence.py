@@ -43,9 +43,14 @@ import analysis  # noqa: E402
 N_TRAJ = int(os.environ.get("N_TRAJ", "10"))     # independent trajectories per case
 MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "8"))  # simultaneous i-PI+driver pairs (<= cores)
 STEPS = os.environ.get("STEPS")   # override total_steps for every case (None = use the XML value)
+NBEADS = os.environ.get("NBEADS")  # override nbeads for every case (None = use the XML value)
 CASE_FILTER = os.environ.get("CASE_FILTER")  # substring to select a subset of cases
 SPRING_CONSTANT = "1.21647924e-8"
 SKIP = int(os.environ.get("SKIP", "200"))        # thermalisation rows to discard
+# Force driver: by default the pip-installed pure-Python driver. Set
+# IPI_DRIVER to the path of the compiled f90 `i-pi-driver` (mode harm3d) for a
+# ~3x speed-up when generating reference data offline.
+F90_DRIVER = os.environ.get("IPI_DRIVER")
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 # (tag, input file, analytical type, temperature, is_fermionic)
@@ -75,6 +80,8 @@ def run_one(xml_name, seed, is_fermionic):
         xml = re.sub(r"<address>.*?</address>", f"<address>{address}</address>", xml, flags=re.S)
         if STEPS:
             xml = re.sub(r"<total_steps>.*?</total_steps>", f"<total_steps> {STEPS} </total_steps>", xml, flags=re.S)
+        if NBEADS:
+            xml = re.sub(r'nbeads="\d+"', f'nbeads="{NBEADS}"', xml)
         xml_path = os.path.join(tmp, "input.xml")
         with open(xml_path, "w") as f:
             f.write(xml)
@@ -88,9 +95,12 @@ def run_one(xml_name, seed, is_fermionic):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         time.sleep(2)
+        if F90_DRIVER:
+            drv_cmd = [F90_DRIVER, "-m", "harm3d", "-o", SPRING_CONSTANT, "-u", "-a", address]
+        else:
+            drv_cmd = ["i-pi-py_driver", "-m", "harmonic", "-o", SPRING_CONSTANT, "-u", "-a", address]
         drv = subprocess.Popen(
-            ["i-pi-py_driver", "-m", "harmonic", "-o", SPRING_CONSTANT, "-u", "-a", address],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            drv_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         ipi.wait()
         drv.wait()

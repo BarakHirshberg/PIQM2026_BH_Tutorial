@@ -140,10 +140,13 @@ def weighted_average(values, weights=None):
     mean = np.sum(weights * values) / w_sum
     n_eff = w_sum**2 / np.sum(weights**2)
 
-    if n_eff <= 1:
+    # The weighted-error formula assumes positive weights and n_eff > 1; if a
+    # trajectory has a non-positive total weight (a badly under-sampled sign)
+    # or there are too few effective samples, the variance is not meaningful.
+    var = (n_eff / (n_eff - 1)) * np.sum(weights * (values - mean) ** 2) / w_sum
+    if n_eff <= 1 or var < 0 or np.any(weights <= 0):
         return mean, float("nan"), n_eff
 
-    var = (n_eff / (n_eff - 1)) * np.sum(weights * (values - mean) ** 2) / w_sum
     error = np.sqrt(var / n_eff)
     return mean, error, n_eff
 
@@ -163,17 +166,31 @@ def getdZk(k, bhw, dim):
 
 
 def get_harmonic_energy(n, bhw, dim, ptcl_type="dist"):
-    """Mean energy of ``n`` non-interacting particles in a harmonic trap.
+    """Exact mean energy (in units of hbar*omega) of ``n`` non-interacting
+    particles in a ``dim``-dimensional isotropic harmonic trap.
 
-    ``ptcl_type`` is one of ``dist``, ``bosonic`` or ``fermionic`` (the last
-    only implemented for ``n == 3``, which is all this tutorial needs).  The
-    bosonic branch uses the recursion of Alg. 4.7 in Krauth's
-    *Statistical Mechanics: Algorithms and Computations*.
+    ``ptcl_type`` is one of ``dist``, ``bosonic`` or ``fermionic``.  The
+    indistinguishable cases use the canonical recursion for the ``n``-particle
+    partition function ``Z_n``,
+
+        Z_n = (1/n) * sum_{k=1}^{n} xi^{k-1} * Z_1(k*beta) * Z_{n-k},
+
+    with ``xi = +1`` for bosons (complete homogeneous symmetric polynomial /
+    Alg. 4.7 in Krauth) and ``xi = -1`` for fermions (elementary symmetric
+    polynomial). Here ``Z_1(k*beta) = getZk(k, ...)`` is the single-particle
+    partition function at inverse temperature ``k*beta``. The energy follows as
+    ``<E>/hbar*omega = -d ln Z_n / d(bhw)`` and is propagated through the same
+    recursion via ``dz_arr``.
+
+    This recursion is exact for any ``n`` and replaces the incorrect hard-coded
+    three-fermion closed form used in earlier versions of this tutorial (which
+    gave 0.912 mHa at 30 K instead of the correct 1.053 mHa).
     """
     if ptcl_type == "dist":
         return -n * getdZk(1, bhw, dim) / getZk(1, bhw, dim)
 
-    if ptcl_type == "bosonic":
+    if ptcl_type in ("bosonic", "fermionic"):
+        xi = 1 if ptcl_type == "bosonic" else -1
         z_arr = np.zeros(n + 1)
         dz_arr = np.zeros(n + 1)
         z_arr[0] = 1.0
@@ -181,22 +198,15 @@ def get_harmonic_energy(n, bhw, dim, ptcl_type="dist"):
             sig_z = 0.0
             sig_dz = 0.0
             for j in range(m, 0, -1):
-                sig_z += getZk(j, bhw, dim) * z_arr[m - j]
-                sig_dz += (
+                sign = xi ** (j - 1)
+                sig_z += sign * getZk(j, bhw, dim) * z_arr[m - j]
+                sig_dz += sign * (
                     getdZk(j, bhw, dim) * z_arr[m - j]
                     + getZk(j, bhw, dim) * dz_arr[m - j]
                 )
             z_arr[m] = sig_z / m
             dz_arr[m] = sig_dz / m
         return -dz_arr[n] / z_arr[n]
-
-    if ptcl_type == "fermionic" and n == 3:
-        num = (
-            -3 - np.exp(bhw) + 8 * np.exp(2 * bhw)
-            + 17 * np.exp(3 * bhw) + 15 * np.exp(4 * bhw)
-        )
-        denom = 2 * (-1 - np.exp(bhw) + np.exp(3 * bhw) + np.exp(4 * bhw))
-        return num / denom
 
     return 0.0
 
