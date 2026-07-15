@@ -1,0 +1,26 @@
+# i-PI simulation outputs
+examples/**/data.*
+examples/**/*.out
+examples/**/*.xyz
+examples/**/log.i-pi
+examples/**/RESTART
+examples/**/EXIT
+examples/**/#RESTART#*#
+examples/**/\#RESTART\#*\#
+/tmp/ipi_*
+
+# conda / virtual envs
+env/
+.venv/
+*.conda
+
+# sphinx-gallery / docs build
+docs/build/
+_build/
+*.zip
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.nox/

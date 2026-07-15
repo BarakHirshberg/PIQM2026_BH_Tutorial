@@ -1,0 +1,14 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      # i-PI 3.2+ ships the engine, the `i-pi` driver AND the pure-Python
+      # `i-pi-py_driver` (with the built-in `harmonic` PES used here), so no
+      # Fortran compilation and no separate driver install are needed.
+      - ipi>=3.2.0
+      - numpy
+      - matplotlib
+      - ase
+      - chemiscope>=1.0   # optional: interactive trajectory visualisation
