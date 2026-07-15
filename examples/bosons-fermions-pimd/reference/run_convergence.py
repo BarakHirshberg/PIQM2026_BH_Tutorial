@@ -94,7 +94,17 @@ def run_one(xml_name, seed, is_fermionic):
             ["i-pi", "input.xml"], cwd=tmp,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        time.sleep(2)
+        # Wait for i-PI to actually open the socket before launching the driver.
+        # The compiled f90 driver does not retry the connection, so under heavy
+        # concurrency a fixed sleep races; poll for the socket file instead.
+        for _ in range(120):  # up to ~60 s
+            if os.path.exists(sock):
+                break
+            if ipi.poll() is not None:  # i-PI died
+                break
+            time.sleep(0.5)
+        time.sleep(0.5)  # small margin after the socket appears
+
         if F90_DRIVER:
             drv_cmd = [F90_DRIVER, "-m", "harm3d", "-o", SPRING_CONSTANT, "-u", "-a", address]
         else:
