@@ -208,10 +208,11 @@ BEADS_SWITCH = 16
 T_SWITCH = analysis.temperature_for(BHW_SWITCH)
 
 # (label, input template, (n_bosons, n_dist) for the exact reference)
+# Ordered low energy -> high, i.e. bosons < mixture < distinguishable.
 cases = [
-    ("distinguishable", "input_4dist.xml", (0, 4)),
     ("4 bosons", "input_4bosons.xml", (4, 0)),
     ("3 bosons + 1 dist", "input_3bosons1dist.xml", (3, 1)),
+    ("distinguishable", "input_4dist.xml", (0, 4)),
 ]
 jobs = [
     (
@@ -238,11 +239,11 @@ for (name, _, _), m, e, ref in zip(cases, switch_sim, switch_err, switch_ref):
 # %%
 # Exchange orders the energies: at fixed temperature the bosonic energy is the
 # lowest, distinguishable is highest, and the mixture sits in between. With four
-# particles the gaps are large enough to resolve with these short runs, and each
-# PIMD bar matches its exact value.
+# particles the gaps are large enough to resolve with these short runs -- each
+# PIMD point (with its error bar) sits on its exact energy level.
 
-plots.plot_statistics_bars(
-    ["dist", "4 bosons", "3B+1D"],
+plots.plot_statistics_levels(
+    ["4 bosons", "3B+1D", "dist"],
     switch_sim,
     switch_err,
     switch_ref,
@@ -370,12 +371,15 @@ plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 # The sign problem, made concrete
 # -------------------------------
 #
-# The sign problem is not abstract: lower the temperature and the average sign
-# shrinks, so the *same* eight trajectories scatter far more widely. Below we
-# repeat the run at 20 K and put the per-trajectory energies next to the 30 K ones.
+# The sign problem is not abstract. Recall the statistics comparison above at
+# :math:`\beta\hbar\omega_0 = 2` (17.4 K): telling bosons, mixtures and
+# distinguishable particles apart there was trivial. Now run three **fermions** at
+# that *same* :math:`\beta\hbar\omega_0 = 2` and put the eight per-trajectory
+# energies next to the well-behaved 30 K ones.
 
+cold_T = analysis.temperature_for(2)  # the statistics-comparison temperature
 cold_jobs = [
-    ("input_3fermions.xml", f"fcold-{i}", dict(temp=20.0, seed=s))
+    ("input_3fermions.xml", f"fcold-{i}", dict(temp=cold_T, seed=s))
     for i, s in enumerate(seeds)
 ]
 cold_E, cold_signs = [], []
@@ -384,27 +388,27 @@ for o in run_parallel(cold_jobs):
     cold_E.append(e_j)
     cold_signs.append(s_j)
 cold_traj = np.array(cold_E)
-cold_ref = analysis.analytical_energy(20.0, "fermionic")
+cold_ref = analysis.analytical_energy(cold_T, "fermionic")
 
 print(
-    f"average sign:  30 K -> {np.mean(signs):.3f},   20 K -> {np.mean(cold_signs):.3f}"
+    f"average sign:  30 K -> {np.mean(signs):.3f},   17.4 K -> {np.mean(cold_signs):.3f}"
 )
 
 plots.plot_sign_scatter(
     [
         (f"30 K\n<s> = {np.mean(signs):.2f}", fer_traj, fer_ref),
-        (f"20 K\n<s> = {np.mean(cold_signs):.2f}", cold_traj, cold_ref),
+        (f"17.4 K\n<s> = {np.mean(cold_signs):.2f}", cold_traj, cold_ref),
     ]
 )
 
 # %%
-# At 20 K the average sign has dropped noticeably (from ~0.36 to ~0.24) and the
-# per-trajectory energies scatter over a far wider range -- some even come out
-# negative or well above the true value. Eight short trajectories no longer pin
-# the energy down; you would
-# need far more sampling. This is the sign problem, and it is why we run the
-# fermions at the milder 30 K -- colder still, or with more particles, both the
-# scatter and the number of trajectories you need grow exponentially.
+# At :math:`\beta\hbar\omega_0 = 2` the average sign has collapsed (from ~0.36 to
+# ~0.12) and the per-trajectory energies fly apart -- from *negative* values to
+# several times the true energy. What was trivial for bosons is, for fermions,
+# barely possible with eight short trajectories: this is the **sign problem**. It
+# is why we run the fermions warmer, at 30 K; colder still, or with more
+# particles, both the scatter and the number of trajectories you need grow
+# exponentially.
 
 
 # %%

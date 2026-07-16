@@ -63,23 +63,31 @@ def plot_boson_energy_curve(bhw_points, e_points, e_err, bhw_range=(0.5, 5.5)):
     return ax
 
 
-def plot_statistics_bars(labels, sim, err, ref, title):
-    """Grouped bar chart of PIMD vs exact total energies (mHa) at one temperature."""
-    x = np.arange(len(labels))
+def plot_statistics_levels(labels, sim, err, ref, title):
+    """Energy-level comparison at one temperature: the exact total energy of each
+    case is drawn as a horizontal level, with the PIMD value (point + error bar)
+    on it. Ordered low to high, this shows how exchange orders the energies."""
+    sim = np.array(sim) * 1e3
+    err = np.array(err) * 1e3
+    ref = np.array(ref) * 1e3
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
-    ax.bar(
-        x - 0.2,
-        np.array(sim) * 1e3,
-        0.4,
-        yerr=np.array(err) * 1e3,
-        capsize=4,
-        label="PIMD",
-    )
-    ax.bar(x + 0.2, np.array(ref) * 1e3, 0.4, label="exact")
-    ax.set_xticks(x, labels)
+    for i, lab in enumerate(labels):
+        ax.hlines(ref[i], i + 0.15, i + 0.85, color="gray", lw=2.5)
+        ax.errorbar(i + 0.5, sim[i], yerr=err[i], fmt="o", ms=9, capsize=5, color="C0")
+        ax.annotate(
+            lab,
+            (i + 0.5, -0.07),
+            xycoords=("data", "axes fraction"),
+            ha="center",
+            fontsize=9,
+        )
+    ax.set_xticks([])
+    ax.set_xlim(0, len(labels))
+    ax.plot([], [], color="gray", lw=2.5, label="exact")
+    ax.plot([], [], "o", color="C0", label="PIMD")
     ax.set_ylabel("total energy / mHa")
     ax.set_title(title)
-    ax.legend()
+    ax.legend(loc="upper left")
     return ax
 
 
