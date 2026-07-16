@@ -204,6 +204,17 @@ print(f"  analytical total energy           : {mix_ref:.7f} Ha")
 # When the average sign approaches zero the estimator becomes hard to converge
 # -- the fermionic **sign problem**. This is why we use a higher temperature
 # (30 K) and fewer beads for the fermionic run.
+#
+# .. admonition:: The exact reference value
+#
+#    The exact three-fermion energy at 30 K is **1.053 mHa**, computed by
+#    ``analysis.analytical_energy`` from the canonical partition-function
+#    recursion (elementary symmetric polynomial, :math:`\\xi=-1`). An earlier
+#    version of this tutorial used an incorrect hard-coded closed form that gave
+#    0.912 mHa; the value here is confirmed independently by brute-force
+#    enumeration of the three-fermion states. A single short run below is only
+#    illustrative -- see the two sections that follow for a properly sampled
+#    comparison.
 
 fer_out = run_case("3fermions", "input_3fermions.xml", "bf-3fermions")
 mean_sign, fer_energy = analysis.reweighted_fermionic_energy(fer_out, skip)
