@@ -222,13 +222,12 @@ def temperature_for(bhw):
 # temperature :math:`\beta\hbar\omega_0` from warm (near-classical) to cold,
 # where the system settles into its quantum ground state.
 #
-# .. note::
-#    **How many beads?** The number of beads needed grows with
-#    :math:`\beta\hbar\omega_0`: the finite-bead (Trotter) error scales like
-#    :math:`(\beta\hbar\omega_0/P)^2`, so a warm run needs far fewer beads than
-#    a cold one. We therefore *scale* :math:`P` with the inverse temperature,
-#    keeping every point converged to :math:`\sim0.2\%` -- and the warm point
-#    runs with only 8 beads instead of 32.
+# **How many beads?** The number of beads needed grows with
+# :math:`\beta\hbar\omega_0`: the finite-bead (Trotter) error scales like
+# :math:`(\beta\hbar\omega_0/P)^2`, so a warm run needs far fewer beads than
+# a cold one. We therefore *scale* :math:`P` with the inverse temperature,
+# keeping every point converged to :math:`\sim0.2\%` -- and the warm point
+# runs with only 8 beads instead of 32.
 
 # beta*hbar*omega0 and the (temperature-scaled) number of beads for each point
 SWEEP_BHW = [1, 2, 3, 5]
@@ -344,12 +343,11 @@ ax.legend()
 # Exchange means the ring polymers of the listed atoms are allowed to connect
 # into longer rings; the atoms left out stay closed on themselves.
 #
-# .. warning::
-#    The **centroid-virial** kinetic estimator is *not* valid under bosonic
-#    exchange, so the boson and mixture inputs record the primitive/quantum
-#    virial (``virial_fq``) and thermodynamic (``kinetic_td``) estimators
-#    instead. The total energy from the (always-valid) primitive virial is what
-#    we compare below.
+# **Careful -- which kinetic estimator?** The **centroid-virial** estimator is
+# *not* valid under bosonic exchange, so the boson and mixture inputs record the
+# primitive/quantum virial (``virial_fq``) and thermodynamic (``kinetic_td``)
+# estimators instead. The total energy from the (always-valid) primitive virial
+# is what we compare below.
 #
 # You can see this in the ``<properties>`` line of each input: the
 # distinguishable case keeps ``kinetic_cv``, while the exchange cases drop it.
@@ -456,16 +454,14 @@ ax.legend()
 # This is why the fermion input uses a higher temperature
 # (:math:`\beta\hbar\omega_0 = 1.16`, 30 K) and fewer beads (12).
 #
-# .. admonition:: The exact reference value
-#
-#    The exact three-fermion energy at 30 K is **1.053 mHa**, computed by
-#    ``analysis.analytical_energy`` from the canonical partition-function
-#    recursion (elementary symmetric polynomial, :math:`\xi=-1`). An earlier
-#    version of this tutorial used an incorrect hard-coded closed form that gave
-#    0.912 mHa; the value here is confirmed independently by brute-force
-#    enumeration of the three-fermion states. Note the Pauli exclusion principle
-#    lifts the fermionic ground state to :math:`6.5\,\hbar\omega_0`, well above
-#    the bosonic :math:`4.5\,\hbar\omega_0`.
+# **The exact reference value.** The exact three-fermion energy at 30 K is
+# **1.053 mHa**, computed by ``analysis.analytical_energy`` from the canonical
+# partition-function recursion (elementary symmetric polynomial,
+# :math:`\xi=-1`). An earlier version of this tutorial used an incorrect
+# hard-coded closed form that gave 0.912 mHa; the value here is confirmed
+# independently by brute-force enumeration of the three-fermion states. Note the
+# Pauli exclusion principle lifts the fermionic ground state to
+# :math:`6.5\,\hbar\omega_0`, well above the bosonic :math:`4.5\,\hbar\omega_0`.
 
 fer_out = run_ipi("input_3fermions.xml", "bf-3fermions")
 mean_sign, fer_energy = analysis.reweighted_fermionic_energy(fer_out, SKIP)
