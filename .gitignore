@@ -11,6 +11,7 @@ examples/**/\#RESTART\#*\#
 
 # conda / virtual envs
 env/
+env_verify/
 .venv/
 *.conda
 

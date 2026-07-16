@@ -19,16 +19,35 @@ Two things make it far easier to run than the 2023 version:
 
 ## What you will do
 
-Simulate three non-interacting particles in a 3D harmonic trap and compute the
-average energy for four kinds of statistics, each a **one-line change** to the
-`<bosons>` tag in the i-PI input:
+Simulate three non-interacting particles (mass 1) in a **3D isotropic harmonic
+trap** with force constant `k = 1.21647924e-8` Ha/Bohr², i.e. a trap frequency
+`ℏω₀ = 3 meV` (a very soft trap). Quantum statistics is switched on with a
+**one-line change** to the `<bosons>` tag in the i-PI input, and temperature is
+quoted in the natural dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in
+three steps:
 
-| Case | `<bosons>` | beads | T (K) |
-|------|-----------|-------|-------|
-| 3 distinguishable | `[]` | 32 | 17.4 |
-| 3 bosons | `[0, 1, 2]` | 32 | 17.4 |
-| 2 bosons + 1 distinguishable | `[0, 1]` | 32 | 17.4 |
-| 3 fermions (reweighted) | `[0, 1, 2]` + `fermionic_sign` | 12 | 30.0 |
+1. **Bosons and the energy–temperature curve.** Turn on exchange with
+   `<bosons> [0, 1, 2]` and trace `⟨E⟩` across a sweep of temperatures,
+   `βℏω₀ = 1, 2, 3, 5`, comparing the PIMD points against the exact curve and
+   watching the energy settle onto the ground state at low `T`.
+2. **Switching statistics.** From the *same* input flip to `[]`
+   (distinguishable) or `[0, 1]` (a 2-boson + 1-distinguishable mixture) and
+   compare all three energies at one temperature (`βℏω₀ = 2`, i.e. 17.4 K).
+3. **Fermions.** Reweight the bosonic run by the `fermionic_sign`, meet the
+   **sign problem**, and average several trajectories to get an honest
+   (sign-weighted) error bar. Run warmer (`βℏω₀ = 1.16`, 30 K) with fewer beads.
+
+The number of beads `P` needed grows with `βℏω₀` (the Trotter error scales like
+`(βℏω₀/P)²`), so the boson sweep *scales* `P` with the inverse temperature
+rather than fixing it — keeping every point converged to ~0.2%:
+
+| `βℏω₀` | T (K) | beads `P` | role |
+|--------|-------|-----------|------|
+| 1 | 34.8 | 8 | boson sweep (warm) |
+| 2 | 17.4 | 16 | boson sweep + statistics comparison |
+| 3 | 11.6 | 24 | boson sweep |
+| 5 | 7.0 | 32 | boson sweep (cold — near ground state) |
+| 1.16 | 30.0 | 12 | fermions (sign-problem limited) |
 
 You will see that exchange orders the energies as
 E(bosons) < E(distinguishable) < E(fermions), and meet the fermionic **sign
@@ -49,8 +68,9 @@ cd examples/bosons-fermions-pimd
 python bosons-fermions-pimd.py
 ```
 
-The script runs the four cases, prints each PIMD energy next to the **exact**
-value, runs a small fermionic multi-trajectory average, and saves the figures.
+The script runs the boson temperature sweep, the single-temperature statistics
+comparison, and the fermionic single-run + multi-trajectory average, printing
+each PIMD energy next to the **exact** value and saving the figures.
 
 ### Run it as a notebook
 
@@ -104,10 +124,10 @@ partition-function recursion (mHa):
 
 | Case | exact energy |
 |------|--------------|
-| 3 distinguishable (17.4 K) | 0.6514 |
-| 3 bosons (17.4 K) | 0.5803 |
-| 2 bosons + 1 dist (17.4 K) | 0.6235 |
-| 3 fermions (30 K) | **1.0530** |
+| 3 distinguishable (βℏω₀ = 2.00) | 0.6514 |
+| 3 bosons (βℏω₀ = 2.00) | 0.5803 |
+| 2 bosons + 1 dist (βℏω₀ = 2.00) | 0.6235 |
+| 3 fermions (βℏω₀ = 1.16) | **1.0530** |
 
 > **Note.** The 2023 tutorial hard-coded an *incorrect* closed form for the
 > three-fermion energy (0.912 mHa). The correct value is **1.053 mHa**, verified

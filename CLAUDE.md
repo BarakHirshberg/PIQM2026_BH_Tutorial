@@ -15,9 +15,9 @@ Owner: Barak Hirshberg. Cookbook conventions modelled on
 ```
 examples/bosons-fermions-pimd/
   bosons-fermions-pimd.py   # the tutorial (sphinx-gallery format)
-  analysis.py               # i-PI output reader, EXACT analytical energies, fermionic reweighting + SI weighted error
+  analysis.py               # i-PI output reader, EXACT analytical energies, fermionic reweighting + SI weighted error + block_average
   environment.yml           # conda: python + pip:[ipi>=3.2, numpy, matplotlib, ase, chemiscope]
-  data/*.xml                # 4 i-PI inputs: 3dist / 3bosons / 2bosons1dist / 3fermions
+  data/*.xml                # 4 i-PI input TEMPLATES: 3dist / 3bosons / 2bosons1dist / 3fermions (recipe overrides T/nbeads/seed/steps per run)
 README.md, noxfile.py, LICENSE(BSD-3)
 SM.pdf                      # Barak's paper SI (gitignored, NOT redistributed) — source of the fermion error method
 ```
@@ -25,15 +25,34 @@ SM.pdf                      # Barak's paper SI (gitignored, NOT redistributed) �
 ## Physics / setup
 
 3 particles, mass 1, in a 3D isotropic harmonic trap, k = 1.21647924e-8
-Ha/Bohr² (ℏω₀ = 3 meV). Four cases, each a one-line `<bosons>` change:
-`[]` dist, `[0,1,2]` bosons, `[0,1]` mixed (2 bosons + 1 dist), `[0,1,2]` +
-`fermionic_sign` for fermions (reweighted). dist/bosons/mixed at 17.4 K, P=32;
-fermions at 30 K, P=12 (higher T / fewer beads because of the sign problem).
+Ha/Bohr² (ℏω₀ = 3 meV). Temperatures are quoted as **βℏω₀ = ℏω₀/k_BT**. Four
+template inputs in `data/`, each a one-line `<bosons>` change: `[]` dist,
+`[0,1,2]` bosons, `[0,1]` mixed, `[0,1,2]` + `fermionic_sign` for fermions
+(reweighted). A single `run_ipi()` helper overrides temperature / nbeads / seed /
+total_steps per run, so the templates are just starting points.
+
+**Tutorial structure** (redesigned 2026-07-16, Barak's call — three parts):
+1. **Bosons + E(T) curve**: sweep βℏω₀ ∈ {1,2,3,5} with *temperature-scaled*
+   beads P ∈ {8,16,24,32} (Trotter error ~(βℏω₀/P)², so P grows with βℏω₀ — keeps
+   every point ~0.2% converged and the warm point cheap). 4 runs in parallel,
+   each with a **block-averaged error bar**; plotted on the exact boson curve +
+   dashed ground-state line (bosons/dist → 4.5 ℏω₀, fermions → 6.5 ℏω₀).
+2. **Switching statistics** at βℏω₀=2 (17.4 K), P=16: dist/bosons/mixed run in
+   parallel, bar chart with error bars vs exact.
+3. **Fermions** at βℏω₀=1.16 (30 K), P=12: single reweighted run (noisy) → 8-traj
+   sign-weighted ensemble (brackets exact) → SI error-estimation discussion.
+
+Sweep/switch runs use **total_steps=6000, skip=1000** (Barak kept 6000 for a
+clean monotonic curve, 2026-07-16); fermion runs use the template 3000 steps.
 
 Driver: pip `i-pi-py_driver -m harmonic -o k` (no compilation). The recipe
-**auto-detects** the compiled f90 `i-pi-driver -m harm3d` if on PATH (~3×
-faster; identical results). Conda has NO `ipi` package, so the f90 driver is
-opt-in via compilation (clone i-pi source, `make -C drivers/f90`).
+**auto-detects** the compiled f90 `i-pi-driver -m harm3d` if on PATH. **NOTE
+(measured 2026-07-16): for this tiny 3-atom system the f90 driver is NOT
+meaningfully faster** — i-PI's own per-step Python overhead dominates, not the
+force eval (~3000 bead-steps/s either way). So "run longer for a cleaner curve"
+is expensive regardless of driver; the fix was parallel runs + honest error bars,
+NOT more steps. Conda has NO `ipi` package, so f90 is opt-in via compilation
+(clone i-pi source, `make -C drivers/f90` → binary at `i-pi-src/bin/i-pi-driver`).
 
 ## KEY FINDING (the reason for this whole investigation)
 
@@ -84,26 +103,30 @@ DONE:
       with exact analytical benchmarks and the inline light multi-trajectory
       demo, the heavy well-sampled reference table was redundant. The SI error
       estimator lives in `analysis.py` and is used inline by the recipe.
+- [x] **Tutorial RE-STRUCTURED into 3 parts** (2026-07-16, this session): bosons
+      + E(T) sweep → switching statistics → fermions (see Physics/setup above).
+      Unified `run_ipi()` helper (overrides T/nbeads/seed/steps, isolated tmpdir,
+      BLAS-thread cap). Boson sweep + switching run in PARALLEL with block-averaged
+      error bars (`analysis.block_average`, `analysis.total_energy_series`). README
+      rewritten to match (βℏω₀ units, trap freq, bead-scaling table).
+- [x] **VERIFIED end-to-end** (2026-07-16, f90 driver, full run, exit 0): boson
+      sweep monotonic onto the 4.5 ℏω₀ ground state; switching bars ordered
+      bosons<mixed<dist, ~1σ of exact; **fermion 8-traj weighted 1.064 ± 0.052 mHa
+      brackets exact 1.053 within 0.2σ** (n_eff 6.9/8). All 3 figures render.
 
-REMAINING — exactly two things, do on the faster machine:
-- [ ] **1. VERIFY the recipe end-to-end** — NOT yet confirmed (the run was cut
-      off here). Run it and check the new multi-trajectory cell works and the
-      numbers make sense:
-      `cd examples/bosons-fermions-pimd && MPLBACKEND=Agg python bosons-fermions-pimd.py`
-      (put the f90 `i-pi-driver` on PATH to make it fast). Expected: dist/boson/
-      mixed single runs near the exact values; fermion 8-traj weighted energy
-      ~1.0–1.1 mHa with a large error bar that brackets 1.053; two figures render.
-- [ ] **2. Noob-grad-student test**: spawn an agent role-playing an
-      inexperienced i-PI user; have it create a FRESH env (`./env_noobtest`)
-      following ONLY README.md, run the whole recipe, and report friction points;
-      then fix them and remove the test env. (Fresh env tests the pip-only path
-      honestly.)
+REMAINING — one thing:
+- [ ] **Noob-grad-student test**: spawn an agent role-playing an inexperienced
+      i-PI user; have it create a FRESH env (`./env_noobtest`) following ONLY
+      README.md, run the whole recipe, and report friction points; then fix them
+      and remove the test env. (Fresh env tests the pip-only path honestly.)
 
-Known open question (minor, not blocking): with tight statistics all cases sit
-~1–2% (≈2σ) above exact — a small finite-P(32)/dt(10 fs) systematic. Barak is
-fine with this; the tutorial is meant to "make sense," not be converged. If you
-ever want <1σ agreement, use more beads (P≥64) and/or smaller dt in the
-reference runs only.
+Runtime note: sweep/switch at 6000 steps ≈ 5–6 min on a 20-core f90 machine, but
+~10–15 min on a 4-core laptop with the pip Python driver (f90 barely helps — see
+Physics/setup). Barak accepted this for the clean curve (2026-07-16).
+
+Known open question (minor, not blocking): short runs scatter a few % around
+exact; the block-averaged error bars are what make that "make sense." Tightening
+would need many more (or longer) steps — expensive, and not the point.
 
 ## Gotchas / lessons
 - Soft trap: oscillation period ~1370 fs, so dt=1 fs needs millions of steps.
@@ -111,13 +134,20 @@ reference runs only.
   so **dt=10 fs** is safe and ~10× cheaper. All inputs use dt=10.
 - The SI weighted mean with `W_j = Σs` equals the pooled `Σεs/Σs` estimator.
 - f90 driver does NOT retry the socket connection; under concurrency you must
-  wait for `/tmp/ipi_<address>` to exist before launching it.
+  wait for `/tmp/ipi_<address>` to exist before launching it (done in `run_ipi`).
+- For this tiny 3-atom system the f90 driver is ~as slow as the Python one —
+  i-PI per-step overhead dominates (~3000 bead-steps/s). Don't reach for longer
+  runs to clean up noise; parallelise + use block-averaged error bars instead.
 - /tmp (incl. the scratchpad f90 build) is cleared on session restart; rebuild
-  with: `git clone --depth 1 https://github.com/i-pi/i-pi && make -C i-pi/drivers/f90`.
+  with: `git clone --depth 1 https://github.com/i-pi/i-pi && make -C i-pi/drivers/f90`
+  (binary lands at `i-pi/bin/i-pi-driver`; put its dir on PATH).
 
 ## Conventions
 - Verify with the conda env at `./env` (gitignored). Activate:
   `source ~/miniconda3/etc/profile.d/conda.sh && conda activate ./env`.
-- Lint: `ruff check`. All committed code passes ruff.
+  (On a machine without that conda, make a scratch venv `./env_verify` —
+  gitignored — `python -m venv env_verify && env_verify/bin/pip install
+  "ipi>=3.2" numpy matplotlib ruff`; that's what this session used.)
+- Lint: `ruff check` + `ruff format --check`. All committed code passes both.
 - Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - Do NOT commit SM.pdf (gitignored) or the ./env folder.

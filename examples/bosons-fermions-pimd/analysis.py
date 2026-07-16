@@ -72,6 +72,36 @@ def mean_energies(filename, skip_steps=0):
     return out
 
 
+def total_energy_series(filename, skip_steps=0):
+    """Time series of the total energy (primitive virial + potential).
+
+    This estimator is valid under bosonic exchange (unlike the centroid virial),
+    so it is what the boson temperature sweep uses for its per-point error bars.
+    """
+    o = read_ipi_output(filename)
+    return (-o["virial_fq"] + o["potential"])[skip_steps:]
+
+
+def block_average(series, n_blocks=10):
+    """Mean and block-averaged standard error of a correlated MD time series.
+
+    Consecutive MD steps are correlated, so ``std/sqrt(N)`` on the raw samples
+    underestimates the error. Instead the series is split into ``n_blocks``
+    contiguous blocks; provided each block is longer than the autocorrelation
+    time the block means are approximately independent, and the standard error
+    is their spread, ``std(block_means)/sqrt(n_blocks)``.
+
+    Returns ``(mean, error)``.
+    """
+    series = np.asarray(series, dtype=float)
+    block_len = len(series) // n_blocks
+    if block_len == 0:
+        return float(np.mean(series)), float("nan")
+    blocks = series[: block_len * n_blocks].reshape(n_blocks, block_len)
+    block_means = blocks.mean(axis=1)
+    return float(block_means.mean()), float(block_means.std(ddof=1) / np.sqrt(n_blocks))
+
+
 def reweighted_fermionic_energy(filename, skip_steps=0):
     """Recover the fermionic total energy from a bosonic run by reweighting.
 
@@ -113,8 +143,8 @@ def fermionic_trajectory_estimate(filename, skip_steps=0):
     sign = o["fermionic_sign"][skip_steps:]
     total = -o["virial_fq"][skip_steps:] + o["potential"][skip_steps:]
 
-    w_j = np.sum(sign)                       # W_j = sum of instantaneous signs
-    e_j = np.sum(total * sign) / w_j         # E_j = <eps*s>_j / <s>_j
+    w_j = np.sum(sign)  # W_j = sum of instantaneous signs
+    e_j = np.sum(total * sign) / w_j  # E_j = <eps*s>_j / <s>_j
     return e_j, w_j, np.mean(sign)
 
 
@@ -160,8 +190,12 @@ def getZk(k, bhw, dim):
 
 def getdZk(k, bhw, dim):
     return (
-        -0.5 * k * dim * getZk(k, bhw, dim)
-        * (1 + np.exp(-k * bhw)) / (1 - np.exp(-k * bhw))
+        -0.5
+        * k
+        * dim
+        * getZk(k, bhw, dim)
+        * (1 + np.exp(-k * bhw))
+        / (1 - np.exp(-k * bhw))
     )
 
 
