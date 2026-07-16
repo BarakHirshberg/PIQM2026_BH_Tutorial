@@ -365,6 +365,48 @@ plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 # treatment. Both estimators are in ``analysis.py`` (:func:`weighted_average`,
 # :func:`fermionic_trajectory_estimate`).
 
+
+# %%
+# The sign problem, made concrete
+# -------------------------------
+#
+# The sign problem is not abstract: lower the temperature and the average sign
+# shrinks, so the *same* eight trajectories scatter far more widely. Below we
+# repeat the run at 20 K and put the per-trajectory energies next to the 30 K ones.
+
+cold_jobs = [
+    ("input_3fermions.xml", f"fcold-{i}", dict(temp=20.0, seed=s))
+    for i, s in enumerate(seeds)
+]
+cold_E, cold_signs = [], []
+for o in run_parallel(cold_jobs):
+    e_j, _, s_j = analysis.fermionic_trajectory_estimate(o, SKIP)
+    cold_E.append(e_j)
+    cold_signs.append(s_j)
+cold_traj = np.array(cold_E)
+cold_ref = analysis.analytical_energy(20.0, "fermionic")
+
+print(
+    f"average sign:  30 K -> {np.mean(signs):.3f},   20 K -> {np.mean(cold_signs):.3f}"
+)
+
+plots.plot_sign_scatter(
+    [
+        (f"30 K\n<s> = {np.mean(signs):.2f}", fer_traj, fer_ref),
+        (f"20 K\n<s> = {np.mean(cold_signs):.2f}", cold_traj, cold_ref),
+    ]
+)
+
+# %%
+# At 20 K the average sign has dropped noticeably (from ~0.36 to ~0.24) and the
+# per-trajectory energies scatter over a far wider range -- some even come out
+# negative or well above the true value. Eight short trajectories no longer pin
+# the energy down; you would
+# need far more sampling. This is the sign problem, and it is why we run the
+# fermions at the milder 30 K -- colder still, or with more particles, both the
+# scatter and the number of trajectories you need grow exponentially.
+
+
 # %%
 # The runs here are deliberately short and use only 12 beads for the fermions --
 # enough to "make sense", not to be tightly converged. For production you would

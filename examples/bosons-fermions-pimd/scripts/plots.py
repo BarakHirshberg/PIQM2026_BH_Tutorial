@@ -116,3 +116,32 @@ def plot_fermion_ensemble(traj_energies, mean, err, exact):
     ax.set_title("Three fermions at 30 K: one run vs. eight")
     ax.legend()
     return ax
+
+
+def plot_sign_scatter(cases):
+    """Per-trajectory fermionic energies at several temperatures side by side, to
+    show the sign problem: colder -> smaller sign -> far wider scatter.
+
+    ``cases`` is a list of ``(label, traj_energies_Ha, exact_Ha)``. Each is drawn
+    as a jittered column of grey points with a dashed line at its exact value.
+    """
+    fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
+    for x, (label, traj, exact) in enumerate(cases):
+        traj = np.asarray(traj) * 1e3
+        n = len(traj)
+        jitter = x + 0.12 * (np.arange(n) - (n - 1) / 2) / max((n - 1) / 2, 1)
+        ax.plot(jitter, traj, "o", color="gray", alpha=0.6)
+        ax.hlines(exact * 1e3, x - 0.28, x + 0.28, color="k", ls="--")
+    ax.set_xticks(range(len(cases)), [c[0] for c in cases])
+    ax.set_ylabel("per-trajectory energy / mHa")
+    ax.set_title("The sign problem: colder = much wider scatter")
+    ax.text(
+        0.98,
+        0.02,
+        "dashed = exact",
+        transform=ax.transAxes,
+        ha="right",
+        fontsize=8,
+        color="gray",
+    )
+    return ax
