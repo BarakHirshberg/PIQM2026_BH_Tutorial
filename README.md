@@ -39,9 +39,9 @@ dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in three ste
    **sign problem**, and average several trajectories to get an honest
    (sign-weighted) error bar. Run warmer (`βℏω₀ = 1.16`, 30 K) with fewer beads.
 
-The number of beads `P` needed grows with `βℏω₀` (the Trotter error scales like
-`(βℏω₀/P)²`), so the boson sweep *scales* `P` with the inverse temperature
-rather than fixing it — keeping every point converged to ~0.2%:
+The number of beads `P` needed grows with `βℏω₀`, so the boson sweep *scales* `P`
+with the inverse temperature rather than fixing it (a warm point needs far fewer
+beads than a cold one):
 
 | `βℏω₀` | T (K) | beads `P` | role |
 |--------|-------|-----------|------|
@@ -53,8 +53,8 @@ rather than fixing it — keeping every point converged to ~0.2%:
 
 You will see that exchange orders the energies as
 E(bosons) < E(distinguishable) < E(fermions), and meet the fermionic **sign
-problem** — where a single short run is nearly useless and you must average
-several trajectories with a proper (sign-weighted) error bar.
+problem** — which is why the fermions are estimated from several trajectories
+combined with a proper (sign-weighted) error bar.
 
 ## Before the tutorial: set up and verify (please do this ahead of time)
 
@@ -146,10 +146,9 @@ examples/bosons-fermions-pimd/
 The example directory follows the
 [atomistic-cookbook](https://github.com/lab-cosmo/atomistic-cookbook)
 conventions (a `README.rst`, an `environment.yml`, and a sphinx-gallery `.py`
-that renders to a notebook + HTML page), so it can be contributed upstream by
-copying it into `examples/` of that repository.
+that renders to a notebook + HTML page).
 
-## The exact benchmarks (and a fixed bug)
+## The exact benchmarks
 
 Each case is compared against the **exact** energy of non-interacting particles
 in a harmonic trap, computed in `analysis.py` from the canonical
@@ -165,13 +164,6 @@ partition-function recursion (mHa):
 (The statistics comparison uses four particles; the fermion case uses three. The
 boson energy–temperature sweep also uses three bosons, printed as `E / ℏω₀` at
 each `βℏω₀`.)
-
-> **Note.** The 2023 tutorial hard-coded an *incorrect* closed form for the
-> three-fermion energy (0.912 mHa). The correct value is **1.053 mHa**, verified
-> two independent ways (canonical recursion + brute-force enumeration of the
-> three-fermion states). This wrong benchmark — not the simulation — was the
-> main reason fermions previously appeared to "disagree." With the correct
-> value the PIMD result agrees within its error bar.
 
 ## Fermions need averaging and careful error bars
 
@@ -199,9 +191,7 @@ The tutorial deliberately runs the fermions warm (30 K) and short. Going colder,
 or to more particles, shrinks the sign and blows up the per-trajectory scatter —
 the recipe shows this by repeating the run at βℏω₀ = 2, where the eight
 trajectories fly apart. For production you would run more (and longer)
-trajectories and, if needed, more beads. Building the compiled **f90 driver**
-(`i-pi-driver -m harm3d`, `make` in the i-PI source `drivers/f90`) speeds up
-heavier runs, and the recipe uses it automatically if it is on your `PATH`.
+trajectories and, if needed, more beads.
 
 ## Background and references
 
