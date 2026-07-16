@@ -56,7 +56,7 @@ import analysis
 # is captured by also allowing ring polymers of different particles to be
 # connected into longer rings. Averaging over all such connectivities with the
 # appropriate weights yields bosonic statistics; fermions additionally require a
-# sign :math:`(-1)^{\\ldots}` for every pair exchange.
+# sign :math:`(-1)^{\ldots}` for every pair exchange.
 #
 # In i-PI this is switched on with a single tag inside ``<normal_modes>``:
 #
@@ -82,8 +82,8 @@ import analysis
 # i-PI uses a client-server model: the ``i-pi`` server evolves the ring polymers
 # and a *driver* computes the forces, talking to each other over a socket. The
 # driver is passed the spring constant
-# :math:`k = 1.216\\times10^{-8}\\,\\mathrm{Ha/Bohr^2}`, which corresponds to
-# :math:`\\hbar\\omega_0 = 3\\,\\mathrm{meV}`.
+# :math:`k = 1.216\times10^{-8}\,\mathrm{Ha/Bohr^2}`, which corresponds to
+# :math:`\hbar\omega_0 = 3\,\mathrm{meV}`.
 #
 # For the forces we use the harmonic driver that ships with i-PI. The
 # pure-Python ``i-pi-py_driver`` (mode ``harmonic``) always works and needs no
@@ -219,15 +219,15 @@ def temperature_for(bhw):
 #
 # Rather than a single number, let us trace the whole **energy-temperature
 # curve** and compare it to the exact result. We sweep the dimensionless inverse
-# temperature :math:`\\beta\\hbar\\omega_0` from warm (near-classical) to cold,
+# temperature :math:`\beta\hbar\omega_0` from warm (near-classical) to cold,
 # where the system settles into its quantum ground state.
 #
 # .. note::
 #    **How many beads?** The number of beads needed grows with
-#    :math:`\\beta\\hbar\\omega_0`: the finite-bead (Trotter) error scales like
-#    :math:`(\\beta\\hbar\\omega_0/P)^2`, so a warm run needs far fewer beads than
+#    :math:`\beta\hbar\omega_0`: the finite-bead (Trotter) error scales like
+#    :math:`(\beta\hbar\omega_0/P)^2`, so a warm run needs far fewer beads than
 #    a cold one. We therefore *scale* :math:`P` with the inverse temperature,
-#    keeping every point converged to :math:`\\sim0.2\\%` -- and the warm point
+#    keeping every point converged to :math:`\sim0.2\%` -- and the warm point
 #    runs with only 8 beads instead of 32.
 
 # beta*hbar*omega0 and the (temperature-scaled) number of beads for each point
@@ -274,9 +274,9 @@ for bhw, nbeads, (m, e) in zip(SWEEP_BHW, SWEEP_BEADS, sweep):
 # The PIMD points (with block-averaged error bars) sit on the exact bosonic curve
 # (solid line). The distinguishable curve (dashed) is shown for reference:
 # bosonic exchange always lies below it. At low temperature both approach the
-# **ground-state energy** :math:`4.5\\,\\hbar\\omega_0` (three particles, each
-# contributing :math:`\\tfrac{3}{2}\\hbar\\omega_0` of zero-point energy in 3D) --
-# by :math:`\\beta\\hbar\\omega_0 = 5` the boson energy is within ~0.5% of it. The
+# **ground-state energy** :math:`4.5\,\hbar\omega_0` (three particles, each
+# contributing :math:`\tfrac{3}{2}\hbar\omega_0` of zero-point energy in 3D) --
+# by :math:`\beta\hbar\omega_0 = 5` the boson energy is within ~0.5% of it. The
 # runs are short, so the error bars are sizeable; they are what makes a scattered
 # point "make sense" rather than look like a bug.
 
@@ -325,7 +325,7 @@ ax.legend()
 #
 # The whole point of the ``<bosons>`` tag is how *little* changes between cases.
 # From the very same input we now compare, at one temperature
-# (:math:`\\beta\\hbar\\omega_0 = 2`, i.e. 17.4 K):
+# (:math:`\beta\hbar\omega_0 = 2`, i.e. 17.4 K):
 #
 # * **distinguishable** particles -- ``<bosons> []`` (empty list),
 # * **three bosons** -- ``<bosons> [0, 1, 2]``,
@@ -409,35 +409,35 @@ ax.legend()
 #
 # .. math::
 #
-#    \\langle A \\rangle_F = \\frac{\\langle A\\, s \\rangle}{\\langle s \\rangle},
+#    \langle A \rangle_F = \frac{\langle A\, s \rangle}{\langle s \rangle},
 #
 # where the sign follows from the recursive configuration weight
 #
 # .. math::
 #
-#    W^{(N)} = \\frac{1}{N}\\sum_{k=1}^{N} \\xi^{k-1}
-#              e^{-\\beta E_N^{(k)}} \\, W^{(N-k)}, \\qquad W^{(0)} = 1,
+#    W^{(N)} = \frac{1}{N}\sum_{k=1}^{N} \xi^{k-1}
+#              e^{-\beta E_N^{(k)}} \, W^{(N-k)}, \qquad W^{(0)} = 1,
 #
-# with :math:`\\xi = -1` for fermions. In the 2023 tutorial this weight was
+# with :math:`\xi = -1` for fermions. In the 2023 tutorial this weight was
 # evaluated by a hand-written module; **i-PI 3.x computes it for us** and writes
 # the sign to the ``fermionic_sign`` column, so we just request that property
 # and reweight in two lines (see ``analysis.reweighted_fermionic_energy``).
 #
-# When the average sign :math:`\\langle s\\rangle` approaches zero the estimator
+# When the average sign :math:`\langle s\rangle` approaches zero the estimator
 # becomes a ratio of two tiny, noisy numbers -- the fermionic **sign problem**.
 # This is why the fermion input uses a higher temperature
-# (:math:`\\beta\\hbar\\omega_0 = 1.16`, 30 K) and fewer beads (12).
+# (:math:`\beta\hbar\omega_0 = 1.16`, 30 K) and fewer beads (12).
 #
 # .. admonition:: The exact reference value
 #
 #    The exact three-fermion energy at 30 K is **1.053 mHa**, computed by
 #    ``analysis.analytical_energy`` from the canonical partition-function
-#    recursion (elementary symmetric polynomial, :math:`\\xi=-1`). An earlier
+#    recursion (elementary symmetric polynomial, :math:`\xi=-1`). An earlier
 #    version of this tutorial used an incorrect hard-coded closed form that gave
 #    0.912 mHa; the value here is confirmed independently by brute-force
 #    enumeration of the three-fermion states. Note the Pauli exclusion principle
-#    lifts the fermionic ground state to :math:`6.5\\,\\hbar\\omega_0`, well above
-#    the bosonic :math:`4.5\\,\\hbar\\omega_0`.
+#    lifts the fermionic ground state to :math:`6.5\,\hbar\omega_0`, well above
+#    the bosonic :math:`4.5\,\hbar\omega_0`.
 
 fer_out = run_ipi("input_3fermions.xml", "bf-3fermions")
 mean_sign, fer_energy = analysis.reweighted_fermionic_energy(fer_out, SKIP)
@@ -543,26 +543,26 @@ ax.legend()
 #
 # For fermions a *single* run gives one number with no error bar, and naively
 # averaging the per-trajectory reweighted energies
-# :math:`E_j = \\langle \\varepsilon\\, s\\rangle_j / \\langle s\\rangle_j` with a
-# plain :math:`\\mathrm{std}/\\sqrt{M}` is **biased**: a trajectory that happened
+# :math:`E_j = \langle \varepsilon\, s\rangle_j / \langle s\rangle_j` with a
+# plain :math:`\mathrm{std}/\sqrt{M}` is **biased**: a trajectory that happened
 # to sample mostly low-weight (small-sign) configurations yields a wild ratio,
 # yet counts as much as a well-converged one.
 #
 # The fix (SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* **152**,
 # 171102 (2020)) is to weight each trajectory by its total weight in the
-# reweighted ensemble, :math:`W_j = \\sum_\\mathrm{steps} s` (the sum of the
+# reweighted ensemble, :math:`W_j = \sum_\mathrm{steps} s` (the sum of the
 # instantaneous signs), and to use an *effective* sample size:
 #
 # .. math::
 #
-#    \\bar E_F = \\frac{\\sum_j W_j E_j}{\\sum_j W_j}, \\qquad
-#    n_\\mathrm{eff} = \\frac{\\left(\\sum_j W_j\\right)^2}{\\sum_j W_j^2}, \\qquad
-#    \\sigma_E^2 = \\frac{n_\\mathrm{eff}}{n_\\mathrm{eff}-1}
-#                 \\frac{\\sum_j W_j (E_j - \\bar E_F)^2}{\\sum_j W_j},
+#    \bar E_F = \frac{\sum_j W_j E_j}{\sum_j W_j}, \qquad
+#    n_\mathrm{eff} = \frac{\left(\sum_j W_j\right)^2}{\sum_j W_j^2}, \qquad
+#    \sigma_E^2 = \frac{n_\mathrm{eff}}{n_\mathrm{eff}-1}
+#                 \frac{\sum_j W_j (E_j - \bar E_F)^2}{\sum_j W_j},
 #
-# with statistical error :math:`\\sigma_E/\\sqrt{n_\\mathrm{eff}}`. When all
+# with statistical error :math:`\sigma_E/\sqrt{n_\mathrm{eff}}`. When all
 # weights are equal this reduces to the ordinary mean and
-# :math:`\\mathrm{std}/\\sqrt{M}`, which is why the bosonic runs above needed no
+# :math:`\mathrm{std}/\sqrt{M}`, which is why the bosonic runs above needed no
 # special treatment. Both estimators are implemented in ``analysis.py``
 # (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) -- the same
 # functions the 8-trajectory demo above used.
@@ -573,16 +573,16 @@ ax.legend()
 # ==========================  =====================  =============================
 # estimator                   mean (mHa)             error (mHa)
 # ==========================  =====================  =============================
-# naive mean-of-ratios        1.45  (biased high)    :math:`\\pm 0.32`
-# SI weighted, assuming n=M    1.11                   :math:`\\pm 0.078`
-# SI weighted, using n_eff     1.11                   :math:`\\pm 0.087`  (n_eff=16 of 20)
+# naive mean-of-ratios        1.45  (biased high)    :math:`\pm 0.32`
+# SI weighted, assuming n=M    1.11                   :math:`\pm 0.078`
+# SI weighted, using n_eff     1.11                   :math:`\pm 0.087`  (n_eff=16 of 20)
 # ==========================  =====================  =============================
 #
 # Two lessons: the weighting **removes the bias** in the mean (the naive
 # mean-of-ratios sits at 1.45, the weighted estimate at 1.11), and using the
 # effective sample size gives an **honest, ~12% larger** error bar
-# (:math:`\\sqrt{M/n_\\mathrm{eff}}`) than pretending all :math:`M` trajectories
-# are equally informative. The weighted estimate 1.11 :math:`\\pm` 0.09 agrees
+# (:math:`\sqrt{M/n_\mathrm{eff}}`) than pretending all :math:`M` trajectories
+# are equally informative. The weighted estimate 1.11 :math:`\pm` 0.09 agrees
 # with the exact 1.053 mHa within its error bar -- there is *no* mysterious
 # fermionic discrepancy once (i) the correct benchmark is used and (ii) the
 # statistical error is estimated properly.

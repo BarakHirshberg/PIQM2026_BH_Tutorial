@@ -28,3 +28,6 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 .nox/
+
+# generated notebooks (produced from the sphinx-gallery .py, not tracked)
+*.ipynb

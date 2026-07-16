@@ -74,17 +74,26 @@ each PIMD energy next to the **exact** value and saving the figures.
 
 ### Run it as a notebook
 
-The recipe is in the sphinx-gallery "percent" format: every `# %%` marks a cell,
-so it opens directly as a notebook in **VS Code** or **Jupyter** (via
-`jupytext`):
+The recipe is a sphinx-gallery script (`# %%` cells, with the prose written as
+reStructuredText comments). Convert it to a notebook with **proper markdown
+cells** — rendered text and math, code in code cells — using sphinx-gallery's own
+converter, then open it and run the cells top to bottom (the three figures appear
+inline):
 
 ```bash
 conda activate ./env
-pip install jupytext jupyterlab
+pip install sphinx-gallery jupyterlab
 cd examples/bosons-fermions-pimd
-jupytext --to notebook bosons-fermions-pimd.py
-jupyter lab bosons-fermions-pimd.ipynb
+sphinx_gallery_py2jupyter bosons-fermions-pimd.py   # -> bosons-fermions-pimd.ipynb
+jupyter lab bosons-fermions-pimd.ipynb              # then Run -> Run All Cells
 ```
+
+> Use the sphinx-gallery converter, **not** `jupytext --to notebook`: jupytext
+> does not translate the reStructuredText prose, so the text ends up as raw
+> comments inside code cells instead of rendered markdown.
+
+In **VS Code** you can instead open the `.py` directly — the `# %%` markers give
+"Run Cell" buttons — though the prose shows as comments rather than markdown.
 
 ### Pip-only alternative (no conda)
 
