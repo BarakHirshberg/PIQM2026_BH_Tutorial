@@ -88,13 +88,14 @@ If you see `setup OK`, you are ready. If it fails, email
 
 ## During the tutorial: open the notebook
 
-From the example folder (where your `./env` lives), convert the recipe to a
-Jupyter notebook (proper markdown + rendered math, code in code cells) with
-sphinx-gallery's own converter, then run the cells top to bottom — the four
-figures appear inline:
+In a terminal, go to the example folder inside your clone (adjust the path if you
+cloned somewhere other than your home directory) and activate the environment,
+then convert the recipe to a Jupyter notebook (proper markdown + rendered math,
+code in code cells) with sphinx-gallery's own converter and run the cells top to
+bottom — the four figures appear inline:
 
 ```bash
-cd PIQM2026_BH_Tutorial/examples/bosons-fermions-pimd
+cd PIQM2026_BH_Tutorial/examples/bosons-fermions-pimd   # the folder with your ./env
 conda activate ./env
 sphinx_gallery_py2jupyter bosons-fermions-pimd.py   # -> bosons-fermions-pimd.ipynb
 jupyter lab bosons-fermions-pimd.ipynb              # then Run -> Run All Cells
