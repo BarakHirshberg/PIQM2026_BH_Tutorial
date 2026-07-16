@@ -6,16 +6,16 @@ Path integral molecular dynamics of bosons and fermions
 
 This example shows how to run path integral molecular dynamics (PIMD)
 simulations of **indistinguishable** particles -- bosons and fermions -- with
-``i-PI``, and how to analyze the output. It is a modernised version of the
+``i-PI``, and how to analyze the output. It is a modernized version of the
 "Bosonic and Fermionic PIMD" module of the `PIQM 2023 tutorial
 <https://github.com/i-pi/piqm2023-tutorial>`_, updated to i-PI 3.x.
 
-We simulate a few non-interacting particles (mass 1) in a three-dimensional
-isotropic harmonic trap with :math:`\\hbar\\omega_0 = 3\\,\\mathrm{meV}` (a very
-soft trap) and study how quantum statistics changes the average energy. Most of
-the tutorial uses three particles; the statistics-comparison section uses four,
-so the energy differences between the cases are large enough to see clearly. We
-work in the natural dimensionless inverse temperature
+We simulate a few non-interacting particles (:math:`m=1`) in a three-dimensional
+isotropic harmonic trap with :math:`\\hbar\\omega_0 = 3\\,\\mathrm{meV}` and study
+how quantum statistics changes the average energy. Most of the tutorial uses
+three particles; the statistics-comparison section uses four, so the energy
+differences between the cases are large enough to see clearly. We work in the
+natural dimensionless inverse temperature
 :math:`\\beta\\hbar\\omega_0 = \\hbar\\omega_0 / k_\\mathrm{B}T`, so the whole
 problem is controlled by a single number.
 
@@ -23,15 +23,17 @@ The tutorial is built in three steps:
 
 #. **Bosons.** Switch on bosonic exchange with a one-line tag and trace the
    energy as a function of temperature, comparing against the exact result.
+
 #. **Switching statistics.** See how trivially the *same* input flips between
-   distinguishable particles, bosons and mixtures, and compare their energies at
+   distinguishable particles, bosons, and mixtures, and compare their energies at
    one temperature.
+
 #. **Fermions.** Obtain fermionic averages by reweighting, meet the **sign
    problem**, and learn how to get an honest error bar by averaging several
    trajectories.
 
 The forces come from the built-in ``harmonic`` potential of i-PI's Python
-driver, so the whole recipe installs from PyPI -- no compiled driver required.
+driver, so the whole recipe installs from PyPI---no compiled driver required.
 """
 
 import numpy as np
@@ -50,9 +52,9 @@ from scripts import plots
 # is captured by also allowing ring polymers of different particles to be
 # connected into longer rings. Averaging over all such connectivities with the
 # appropriate weights yields bosonic statistics; fermions additionally require a
-# sign :math:`(-1)^{\ldots}` for every pair exchange.
+# sign for every pair exchange.
 #
-# In i-PI this is switched on with a single tag inside ``<normal_modes>``:
+# In i-PI, this is switched on with a single tag inside ``<normal_modes>``:
 #
 # .. code-block:: xml
 #
@@ -73,10 +75,9 @@ from scripts import plots
 # How we run each case
 # --------------------
 #
-# The mechanics of driving i-PI from Python -- launching the ``i-pi`` server and
-# a force driver that talk over a socket, and editing the XML input -- are not
+# The mechanics of driving i-PI from Python are not
 # the subject of this tutorial, so they live in ``scripts/ipi_runs.py``. From
-# here we only need two calls:
+# here, we only need two calls:
 #
 # .. code-block:: python
 #
@@ -97,10 +98,9 @@ from scripts.ipi_runs import run_parallel
 # Bosons and the energy-temperature curve
 # ---------------------------------------
 #
-# We start with the headline feature: **bosons**. Listing all three atoms in
-# ``<bosons> [0, 1, 2] </bosons>`` turns on bosonic exchange -- nothing else in
-# the input changes. Exchange lets the three ring polymers connect into longer
-# rings, which *lowers* the energy relative to distinguishable particles.
+# We start with **bosons**. Listing all three atoms in
+# ``<bosons> [0, 1, 2] </bosons>`` turns on bosonic exchange, nothing else in
+# the input changes.
 #
 # Rather than a single number, let us trace the whole **energy-temperature
 # curve** and compare it to the exact result. We sweep the dimensionless inverse
@@ -109,11 +109,9 @@ from scripts.ipi_runs import run_parallel
 #
 # .. note::
 #    **How many beads?** The number of beads needed grows with
-#    :math:`\beta\hbar\omega_0`: the finite-bead (Trotter) error scales like
-#    :math:`(\beta\hbar\omega_0/P)^2`, so a warm run needs far fewer beads than
-#    a cold one. We therefore *scale* :math:`P` with the inverse temperature,
-#    keeping every point converged to :math:`\sim0.2\%` -- and the warm point
-#    runs with only 8 beads instead of 32.
+#    :math:`\beta\hbar\omega_0`, so a warm run needs far fewer beads than
+#    a cold one. We therefore *scale* :math:`P` with the inverse temperature, and
+#    the warm point runs with only 8 beads instead of 32.
 
 # beta*hbar*omega0 and the (temperature-scaled) number of beads for each point
 SWEEP_BHW = [1, 2, 3, 5]
@@ -152,10 +150,8 @@ for bhw, P, m, e in zip(SWEEP_BHW, SWEEP_BEADS, sweep_e, sweep_err):
 # (solid line). The distinguishable curve (dashed) is shown for reference:
 # bosonic exchange always lies below it. At low temperature both approach the
 # **ground-state energy** :math:`4.5\,\hbar\omega_0` (three particles, each
-# contributing :math:`\tfrac{3}{2}\hbar\omega_0` of zero-point energy in 3D) --
-# by :math:`\beta\hbar\omega_0 = 5` the boson energy is within ~0.5% of it. The
-# runs are short, so the error bars are sizeable; they are what makes a scattered
-# point "make sense" rather than look like a bug.
+# contributing :math:`\tfrac{3}{2}\hbar\omega_0` of zero-point energy in 3D).
+# By :math:`\beta\hbar\omega_0 = 5`, the boson energy is within ~0.5% of it.
 
 plots.plot_boson_energy_curve(SWEEP_BHW, sweep_e, sweep_err)
 
@@ -164,10 +160,10 @@ plots.plot_boson_energy_curve(SWEEP_BHW, sweep_e, sweep_err)
 # Switching statistics at a single temperature
 # --------------------------------------------
 #
-# The whole point of the ``<bosons>`` tag is how *little* changes between cases.
+# Only the ``<bosons>`` tag is what changes between cases.
 # We now compare, at one temperature (:math:`\beta\hbar\omega_0 = 2`, i.e.
 # 17.4 K), **four** particles under three kinds of statistics. We use four here
-# (rather than the three of the other sections) so the exchange effect is large
+# (rather than the three of the other sections), so the exchange effect is large
 # enough that the energies separate clearly given these short runs:
 #
 # * **distinguishable** -- ``<bosons> []`` (empty list),
@@ -255,7 +251,7 @@ plots.plot_statistics_levels(
 # Fermions: reweighting and the sign problem
 # ------------------------------------------
 #
-# Fermions are harder. We cannot sample the antisymmetric density directly;
+# Fermions are harder. We cannot sample the fermionic density directly;
 # instead we simulate **bosons** and reweight each sample by the fermionic sign
 # :math:`s`,
 #
@@ -270,9 +266,8 @@ plots.plot_statistics_levels(
 #    W^{(N)} = \frac{1}{N}\sum_{k=1}^{N} \xi^{k-1}
 #              e^{-\beta E_N^{(k)}} \, W^{(N-k)}, \qquad W^{(0)} = 1,
 #
-# with :math:`\xi = -1` for fermions. In the 2023 tutorial this weight was
-# evaluated by a hand-written module; **i-PI 3.x computes it for us** and writes
-# the sign to the ``fermionic_sign`` column, so we just request that property
+# with :math:`\xi = -1` for fermions. **i-PI 3.x computes the sign for us** and
+# writes it to the ``fermionic_sign`` column, so we just request that property
 # and reweight in two lines (see ``analysis.reweighted_fermionic_energy``).
 #
 # In the input, there is no separate "fermion mode": you run an ordinary
@@ -283,24 +278,20 @@ plots.plot_statistics_levels(
 #     <bosons> [0, 1, 2] </bosons>                     <!-- still a bosonic run -->
 #     <properties ...> [ ..., virial_fq, fermionic_sign ] </properties>
 #
-# When the average sign :math:`\langle s\rangle` approaches zero the estimator
-# becomes a ratio of two tiny, noisy numbers -- the fermionic **sign problem**.
-# This is why the fermion input uses a higher temperature
-# (:math:`\beta\hbar\omega_0 = 1.16`, 30 K) and fewer beads (12).
+# When the average sign :math:`\langle s\rangle` approaches zero, the denominator
+# is small, and we encounter the fermionic **sign problem**. It becomes worse with
+# increasing system size and decreasing temperature. This is why the fermion input
+# uses a higher temperature (:math:`\beta\hbar\omega_0 = 1.16`, 30 K).
 #
 # .. note::
 #    **The exact reference value.** The exact three-fermion energy at 30 K is
 #    **1.053 mHa**, computed by ``analysis.analytical_energy`` from the canonical
-#    partition-function recursion (elementary symmetric polynomial,
-#    :math:`\xi=-1`). An earlier version of this tutorial used an incorrect
-#    hard-coded closed form that gave 0.912 mHa; the value here is confirmed
-#    independently by brute-force enumeration of the three-fermion states. Note
-#    the Pauli exclusion principle lifts the fermionic ground state to
-#    :math:`6.5\,\hbar\omega_0`, well above the bosonic :math:`4.5\,\hbar\omega_0`.
+#    partition-function recursion. Note the Pauli exclusion principle lifts the
+#    fermionic ground state to :math:`6.5\,\hbar\omega_0`, well above the bosonic
+#    :math:`4.5\,\hbar\omega_0`.
 #
 # We estimate the fermionic energy from **eight independent trajectories**
-# (different random seeds), combined into a single sign-weighted average with an
-# error bar (the reason for the sign-weighting is spelled out afterwards).
+# (different random seeds).
 
 # Eight independent fermionic trajectories with different random seeds, together.
 seeds = [4001 + 137 * i for i in range(8)]
@@ -329,9 +320,8 @@ print(f"  effective sample size     : n_eff = {n_eff:.1f} of 8")
 
 # %%
 # The 8-trajectory fermionic energy brackets the exact 1.053 mHa within its error
-# bar. The individual trajectories (grey) scatter around the sign-weighted mean
-# (blue, with its error bar), which sits on the exact value -- the large-but-honest
-# error bar is the fingerprint of the fermionic **sign problem**.
+# bar. The individual trajectories (grey) scatter around the mean
+# (blue, with its error bar), which sits on the exact value.
 
 plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 
@@ -340,7 +330,7 @@ plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 # How the error bar is estimated
 # ------------------------------
 #
-# Combining fermionic trajectories takes more care than a plain average, because
+# Combining fermionic averages takes more care than a plain average, because
 # they carry different *effective* amounts of information: a trajectory that
 # sampled a smaller average sign has a more poorly-determined ratio and must count
 # for less. We therefore weight each trajectory :math:`j` by its total sign
@@ -354,14 +344,12 @@ plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 #                 \frac{\sum_j W_j (E_j - \bar E_F)^2}{\sum_j W_j},
 #
 # with statistical error :math:`\sigma_E/\sqrt{n_\mathrm{eff}}`
-# (SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* 152, 171102, 2020).
-# The weighted mean is exactly what you would get by pooling every sample of every
-# trajectory into one long run, :math:`\sum \varepsilon s / \sum s`. The effective
-# sample size came out :math:`n_\mathrm{eff} \approx 7` of 8 above: the
-# trajectories are worth fewer than eight fully-independent samples because they
-# carry unequal weight, so the honest error bar is a little larger than
-# :math:`\mathrm{std}/\sqrt{8}` would give. When all the weights are equal -- as
-# for the sign-free bosons -- :math:`n_\mathrm{eff} = M` and this reduces to the
+# (see SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* 152, 171102,
+# 2020). The effective sample size came out :math:`n_\mathrm{eff} \approx 7` of 8
+# above: the trajectories are worth fewer than eight fully independent samples
+# because they carry unequal weight, so the honest error bar is a little larger
+# than :math:`\mathrm{std}/\sqrt{8}` would give. When all the weights are equal, as
+# for the sign-free bosons, :math:`n_\mathrm{eff} = M`, and this reduces to the
 # ordinary mean and standard error, which is why the boson runs needed no special
 # treatment. Both estimators are in ``analysis.py`` (:func:`weighted_average`,
 # :func:`fermionic_trajectory_estimate`).
@@ -372,8 +360,8 @@ plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 # -------------------------------
 #
 # The sign problem is not abstract. Recall the statistics comparison above at
-# :math:`\beta\hbar\omega_0 = 2` (17.4 K): telling bosons, mixtures and
-# distinguishable particles apart there was trivial. Now run three **fermions** at
+# :math:`\beta\hbar\omega_0 = 2` (17.4 K): computing bosons, mixtures, and
+# distinguishable particles was relatively easy. Now run three **fermions** at
 # that *same* :math:`\beta\hbar\omega_0 = 2` and put the eight per-trajectory
 # energies next to the well-behaved 30 K ones.
 
@@ -402,8 +390,8 @@ plots.plot_sign_scatter(
 )
 
 # %%
-# At :math:`\beta\hbar\omega_0 = 2` the average sign has collapsed (from ~0.36 to
-# ~0.12) and the per-trajectory energies fly apart -- from *negative* values to
+# At :math:`\beta\hbar\omega_0 = 2` the average sign dropped (from ~0.36 to
+# ~0.12) and the per-trajectory energies spread apart, from *negative* values to
 # several times the true energy. What was trivial for bosons is, for fermions,
 # barely possible with eight short trajectories: this is the **sign problem**. It
 # is why we run the fermions warmer, at 30 K; colder still, or with more
