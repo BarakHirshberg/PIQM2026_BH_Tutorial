@@ -128,6 +128,50 @@ Known open question (minor, not blocking): short runs scatter a few % around
 exact; the block-averaged error bars are what make that "make sense." Tightening
 would need many more (or longer) steps — expensive, and not the point.
 
+## Cookbook contribution (Phase 2) — PR opened 2026-07-16
+
+Submitted upstream as **[lab-cosmo/atomistic-cookbook#292](https://github.com/lab-cosmo/atomistic-cookbook/pull/292)**
+(base `main`, head `BarakHirshberg:add-bosons-fermions-pimd`, 14 files, +1391/-0).
+**Validated end-to-end** with the real harness on a fast machine
+(`nox -e bosons-fermions-pimd` via miniconda's conda 25.x): the example session +
+`build_website` both succeed, recipe runs in ~2–3 min, no example-specific sphinx
+warnings. CI on the PR waits for a maintainer "approve and run" (first-time fork
+contributor).
+
+Cookbook version diverges from master on purpose (master kept untouched):
+- shorter steps for the 12-min CI budget (`SWEEP_STEPS=1500`, `FERMION_STEPS=2000`,
+  `SKIP=300`) + a `.. note::` telling readers to increase them;
+- dropped `ase`/`chemiscope` from `environment.yml` (unused);
+- pruned 2 dead 3-particle inputs (`input_3dist`, `input_2bosons1dist`);
+- **`analysis.py` moved into `scripts/`** so sphinx-gallery (pattern `.*`, scans
+  top-level `.py` only) does not render it as a titleless gallery page — every
+  other cookbook example has exactly one top-level recipe `.py`. Imports became
+  `from scripts import analysis` (recipe) and `from . import analysis` (plots.py).
+  Master still has `analysis.py` at top level (harmless there — no gallery build);
+  the two tracks are allowed to differ.
+
+Fork/PR mechanics on THIS machine: nox needs Python ≥3.9 (`list[Path]` in
+`src/get_examples.py`) — build the nox venv with `/home/hirshb/miniconda/bin/python`
+(3.13), NOT the 3.8 conda envs. `venv_backend="conda"` needs a conda supporting
+`--solver=libmamba` (miniconda's 25.x, not anaconda3's old conda) with accepted
+channel ToS (`conda tos accept` for pkgs/main + pkgs/r, already done). Fork clone +
+noxvenv live under the session scratchpad.
+
+**Resuming PR work in a later session** (the scratchpad fork clone is gone —
+`/tmp` is wiped on restart, but the branch is safe on GitHub):
+```bash
+gh repo clone BarakHirshberg/atomistic-cookbook   # or: git clone + add upstream
+cd atomistic-cookbook && git checkout add-bosons-fermions-pimd
+# edit under examples/bosons-fermions-pimd/, commit, then:
+git push origin add-bosons-fermions-pimd          # updates PR #292 automatically
+```
+The example dir there is the source of truth for the cookbook version; to re-sync
+it FROM master, copy master's `examples/bosons-fermions-pimd/` over it, then
+re-apply the four cookbook-only deltas listed above (steps/note, env.yml,
+pruned inputs, analysis.py→scripts/). To re-validate: build a nox venv with
+`/home/hirshb/miniconda/bin/python`, put miniconda's conda on PATH, and run
+`nox -e bosons-fermions-pimd`.
+
 ## Gotchas / lessons
 - Soft trap: oscillation period ~1370 fs, so dt=1 fs needs millions of steps.
   Internal ring-polymer modes are propagated exactly (normal modes + nmts=10),
