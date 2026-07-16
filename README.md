@@ -11,10 +11,11 @@ Two things make it far easier to run than the 2023 version:
 
 * **No compilation, no special branch.** Everything installs from PyPI. i-PI 3.x
   ships a pure-Python driver (`i-pi-py_driver`) with a built-in `harmonic`
-  potential, so there is no Fortran to build.
+  potential, so there is no Fortran to build. (If the compiled `i-pi-driver` is
+  on your `PATH`, the recipe auto-detects and uses it — a few times faster.)
 * **Native fermions.** i-PI 3.x records the `fermionic_sign` directly, so the
   hand-written reweighting module (and its `MDAnalysis` dependency) is gone —
-  fermionic averages are now two lines of NumPy.
+  fermionic averages are two lines of NumPy.
 
 ## What you will do
 
@@ -31,30 +32,31 @@ average energy for four kinds of statistics, each a **one-line change** to the
 
 You will see that exchange orders the energies as
 E(bosons) < E(distinguishable) < E(fermions), and meet the fermionic **sign
-problem**.
+problem** — where a single short run is nearly useless and you must average
+several trajectories with a proper (sign-weighted) error bar.
 
 ## Quick start (conda — recommended for the tutorial)
 
 ```bash
-git clone <this-repo> && cd PIQM2026_BH_Tutorial
+git clone https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial && cd PIQM2026_BH_Tutorial
 
 # create a local environment (a folder ./env, keeps your base conda clean)
 conda env create --prefix ./env --file examples/bosons-fermions-pimd/environment.yml
 conda activate ./env
 
-# run the whole recipe (~2–3 minutes)
+# run the whole recipe (a few minutes on a laptop)
 cd examples/bosons-fermions-pimd
 python bosons-fermions-pimd.py
 ```
 
-The script runs all four simulations and prints, for each, the PIMD energy next
-to the exact analytical value, then saves two figures.
+The script runs the four cases, prints each PIMD energy next to the **exact**
+value, runs a small fermionic multi-trajectory average, and saves the figures.
 
 ### Run it as a notebook
 
-The recipe is written in the sphinx-gallery "percent" format: every `# %%`
-marks a new cell, so the file opens directly as a notebook in **VS Code** or
-**Jupyter** (via `jupytext`):
+The recipe is in the sphinx-gallery "percent" format: every `# %%` marks a cell,
+so it opens directly as a notebook in **VS Code** or **Jupyter** (via
+`jupytext`):
 
 ```bash
 conda activate ./env
@@ -63,10 +65,6 @@ cd examples/bosons-fermions-pimd
 jupytext --to notebook bosons-fermions-pimd.py
 jupyter lab bosons-fermions-pimd.ipynb
 ```
-
-(The narrative text is carried along as comments; it is rendered as formatted
-markdown in the HTML page / downloadable notebook produced by the cookbook
-build.)
 
 ### Pip-only alternative (no conda)
 
@@ -88,10 +86,12 @@ examples/bosons-fermions-pimd/
 ├── README.rst                  # one-line recipe description
 ├── environment.yml             # conda/pip dependencies
 ├── bosons-fermions-pimd.py     # the tutorial (sphinx-gallery format)
-├── analysis.py                 # output reader + analytical references + fermionic reweighting
+├── analysis.py                 # output reader + EXACT energies + fermionic reweighting + weighted error
 ├── data/                       # the four i-PI input files
-└── reference/
-    └── run_convergence.py      # offline: N trajectories/case → mean ± error table
+└── reference/                  # optional heavier studies (not needed for the tutorial)
+    ├── run_convergence.py      # N trajectories/case -> mean +/- error (SI weighting for fermions)
+    ├── run_final_table.sh      # well-sampled table + fermion bead-convergence scan
+    └── README.md               # the well-sampled reference numbers
 ```
 
 The example directory follows the
@@ -100,68 +100,69 @@ conventions (a `README.rst`, an `environment.yml`, and a sphinx-gallery `.py`
 that renders to a notebook + HTML page), so it can be contributed upstream by
 copying it into `examples/` of that repository.
 
-## Convergence and error bars
+## The exact benchmarks (and a fixed bug)
 
-A single short run is deliberately noisy. Because the dynamics are unbiased
-(NVT with a thermostat), averaging several **independent** trajectories
-converges toward the exact value and gives a proper standard error. The helper
-`reference/run_convergence.py` runs this study in parallel across your CPU
-cores:
+Each case is compared against the **exact** energy of non-interacting particles
+in a harmonic trap, computed in `analysis.py` from the canonical
+partition-function recursion (mHa):
 
-```bash
-cd examples/bosons-fermions-pimd
-python reference/run_convergence.py          # 10 trajectories per case
-```
+| Case | exact energy |
+|------|--------------|
+| 3 distinguishable (17.4 K) | 0.6514 |
+| 3 bosons (17.4 K) | 0.5803 |
+| 2 bosons + 1 dist (17.4 K) | 0.6235 |
+| 3 fermions (30 K) | **1.0530** |
 
-With 10 trajectories (same short settings as the tutorial) the energies land
-within about one standard error of the analytical values (mHa):
+> **Note.** The 2023 tutorial hard-coded an *incorrect* closed form for the
+> three-fermion energy (0.912 mHa). The correct value is **1.053 mHa**, verified
+> two independent ways (canonical recursion + brute-force enumeration of the
+> three-fermion states). This wrong benchmark — not the simulation — was the
+> main reason fermions previously appeared to "disagree." With the correct
+> value the PIMD result agrees within its error bar.
 
-| Case | trajectory average | analytical |
-|------|--------------------|------------|
-| 3 distinguishable | 0.643 ± 0.017 | 0.651 |
-| 3 bosons | 0.569 ± 0.017 | 0.580 |
-| 2 bosons + 1 dist | 0.606 ± 0.018 | 0.624 |
-| 3 fermions | 1.11 ± 0.09 (weighted) | 0.912 |
+## Fermions need averaging and careful error bars
 
-(10 trajectories per case.) The three distinguishable/bosonic cases land within
-~1σ of the exact values — for equal-weight data, averaging over trajectories
-just removes the noise of a single run.
-
-### Error estimation for fermions
-
-The **fermionic** estimator is fundamentally harder (small average sign ⟨s⟩ ≈
-0.3 — the **sign problem**), and its error must be estimated carefully. Naively
-averaging the per-trajectory reweighted energies with `std/√M` is *biased*: a
-trajectory that sampled mostly low-weight configurations gives a wild ratio but
-counts equally. Following the SI of Hirshberg, Invernizzi & Parrinello (*JCP*
-**152**, 171102, 2020), each trajectory is weighted by its total sign
-`W_j = Σ s`, and an effective sample size `n_eff = (Σ W)² / Σ W²` is used:
+A single short fermionic run is nearly meaningless: the average sign is small
+(⟨s⟩ ≈ 0.3 — the **sign problem**), so the reweighted energy has a huge
+variance. The tutorial runs a handful of short trajectories and combines them
+with the **sign-weighted** estimator from the SI of Hirshberg, Invernizzi &
+Parrinello (*JCP* **152**, 171102, 2020): weight each trajectory by its total
+sign `W_j = Σ s`, use an effective sample size `n_eff = (Σ W)² / Σ W²`, and
 
 ```
 Ē_F = Σ Wⱼ Eⱼ / Σ Wⱼ ,   σ² = n/(n−1) · Σ Wⱼ(Eⱼ−Ē_F)²/Σ Wⱼ ,   error = σ/√n_eff
 ```
 
-Post-processing 20 trajectories × 5000 steps (analytical 0.912 mHa):
+Naively averaging the per-trajectory ratios with `std/√M` is *biased* (a
+low-weight trajectory gives a wild ratio yet counts equally). Post-processing 20
+trajectories × 5000 steps (exact 1.053 mHa):
 
 | estimator | mean (mHa) | error (mHa) |
 |-----------|-----------|-------------|
 | naive mean-of-ratios | 1.45 (biased high) | ± 0.32 |
-| SI weighted, assuming n = M | 1.11 | ± 0.078 |
-| SI weighted, using n_eff | 1.11 | ± 0.087 (n_eff = 16 of 20) |
+| SI weighted (using n_eff) | 1.11 | ± 0.09 (n_eff = 16 of 20) |
 
-The weighting **removes the bias** in the mean, and using `n_eff` gives an
-**honest, ~12% larger** error bar than assuming all M trajectories count fully.
-`weighted_average()` in `analysis.py` reduces to the plain mean + `std/√M` when
-weights are equal, so the same code handles bosons and the average sign. Run:
+The weighting removes the bias, and the weighted estimate **1.11 ± 0.09 agrees
+with the exact 1.053** within error. `weighted_average()` in `analysis.py`
+reduces to the plain mean + `std/√M` when weights are equal, so the same code
+handles bosons and the average sign.
+
+### Reference / production accuracy (optional)
+
+The tutorial runs are deliberately short and use only 12 beads for fermions —
+enough to *make sense*, not to be tightly converged. To push the statistical
+error down and check convergence with the number of beads:
 
 ```bash
-N_TRAJ=20 STEPS=5000 MAX_CONCURRENT=12 CASE_FILTER=fermion python reference/run_convergence.py
+cd examples/bosons-fermions-pimd
+python reference/run_convergence.py                                 # N trajectories/case
+IPI_DRIVER=/path/to/i-pi-driver bash reference/run_final_table.sh   # full table + fermion P-scan
 ```
 
-For production-scale fermionic runs the compiled **f90 driver** (`i-pi-driver
--m harm3d`, built from the i-PI source with `make` in `drivers/f90`) is several
-times faster than the Python driver and is the practical choice; the tutorial
-uses the Python driver only to stay pip-installable.
+`reference/README.md` collects the well-sampled numbers. For these heavy runs
+the compiled **f90 driver** (`i-pi-driver -m harm3d`, built with `make` in the
+i-PI source `drivers/f90`) is several times faster; the tutorial itself only
+needs the pip driver.
 
 ## Background and references
 

@@ -23,9 +23,12 @@ The forces come from the built-in ``harmonic`` potential of i-PI's Python
 driver, so the whole recipe installs from PyPI -- no compiled driver required.
 """
 
+import concurrent.futures
 import os
+import re
 import shutil
 import subprocess
+import tempfile
 import time
 
 import matplotlib.pyplot as plt
@@ -110,6 +113,53 @@ def run_case(tag, xml, address):
     out = f"data_{tag}.out"
     os.replace("data.out", out)
     return out
+
+
+def _run_seeded(xml, seed, address):
+    """Run one trajectory with a given random seed in an isolated temp dir and
+    return the path to its ``data.out`` (used for the multi-trajectory demo)."""
+    tmp = tempfile.mkdtemp(prefix="ipi_traj_")
+    text = open(f"data/{xml}").read()
+    text = re.sub(r"<seed>.*?</seed>", f"<seed> {seed} </seed>", text, flags=re.S)
+    text = re.sub(r"<address>.*?</address>", f"<address>{address}</address>", text, flags=re.S)
+    open(os.path.join(tmp, "input.xml"), "w").write(text)
+
+    sock = f"/tmp/ipi_{address}"
+    if os.path.exists(sock):
+        os.remove(sock)
+    ipi = subprocess.Popen(["i-pi", "input.xml"], cwd=tmp,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(120):  # wait for the socket before starting the driver
+        if os.path.exists(sock) or ipi.poll() is not None:
+            break
+        time.sleep(0.5)
+    drv = subprocess.Popen(driver_command(address), cwd=tmp,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ipi.wait()
+    drv.wait()
+    return os.path.join(tmp, "data.out")
+
+
+def run_fermion_ensemble(n_traj, skip_rows):
+    """Run ``n_traj`` short fermionic trajectories (different seeds) in parallel
+    and combine them with the sign-weighted estimator. Returns
+    ``(mean, error, n_eff, mean_sign)``."""
+    seeds = [4001 + 137 * i for i in range(n_traj)]
+    workers = min(n_traj, max(1, (os.cpu_count() or 2) // 2))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        outs = list(pool.map(
+            lambda i: _run_seeded("input_3fermions.xml", seeds[i], f"bf-fmulti-{i}"),
+            range(n_traj),
+        ))
+    E, W, signs = [], [], []
+    for out in outs:
+        e_j, w_j, s_j = analysis.fermionic_trajectory_estimate(out, skip_rows)
+        E.append(e_j)
+        W.append(w_j)
+        signs.append(s_j)
+        shutil.rmtree(os.path.dirname(out), ignore_errors=True)
+    mean, error, n_eff = analysis.weighted_average(E, W)
+    return mean, error, n_eff, float(np.mean(signs))
 
 
 # %%
@@ -220,10 +270,40 @@ fer_out = run_case("3fermions", "input_3fermions.xml", "bf-3fermions")
 mean_sign, fer_energy = analysis.reweighted_fermionic_energy(fer_out, skip)
 fer_ref = analysis.analytical_energy(30.0, "fermionic")
 
-print("Three fermions (T = 30 K)")
+print("Three fermions (T = 30 K, single short run)")
 print(f"  average sign <s>                  : {mean_sign:.4f}")
 print(f"  fermionic total energy            : {fer_energy:.7f} Ha")
 print(f"  analytical total energy           : {fer_ref:.7f} Ha")
+
+
+# %%
+# Don't trust one fermionic run -- average several
+# ------------------------------------------------
+#
+# That single fermionic number is almost meaningless: the average sign is small,
+# so the reweighted energy has a huge variance and one short run can land far
+# from the truth. The honest thing is to run **several independent
+# trajectories** (different random seeds) and combine them. Because the sign
+# varies between trajectories, we use the sign-*weighted* estimator explained in
+# the "Error estimation" section below (not a plain average). Here we run a
+# handful of short trajectories in parallel -- still only a couple of minutes on
+# a laptop:
+
+fer_mean, fer_err, n_eff, ens_sign = run_fermion_ensemble(n_traj=8, skip_rows=skip)
+
+print("Three fermions (T = 30 K, 8 short trajectories, sign-weighted)")
+print(f"  average sign <s>                  : {ens_sign:.3f}")
+print(f"  weighted fermionic energy         : {fer_mean * 1e3:.4f} +/- {fer_err * 1e3:.4f} mHa")
+print(f"  analytical total energy           : {fer_ref * 1e3:.4f} mHa")
+print(f"  (effective sample size n_eff = {n_eff:.1f} of 8)")
+
+# %%
+# The error bar is large -- often 5-10% of the value -- but it now *brackets* the
+# analytical result. That large-but-honest error bar is the fingerprint of the
+# fermionic **sign problem**: the numbers make sense, they are just noisy, and
+# tightening them needs far more sampling (see the reference study). Contrast
+# this with the distinguishable/bosonic runs, whose single short runs are already
+# close because there is no sign to fight.
 
 
 # %%
@@ -232,55 +312,26 @@ print(f"  analytical total energy           : {fer_ref:.7f} Ha")
 #
 # Bosonic exchange *lowers* the energy while fermionic antisymmetry *raises* it,
 # so at fixed temperature :math:`E_\\mathrm{bosons} < E_\\mathrm{dist} <
-# E_\\mathrm{fermions}`. (The short runs above are noisy; the ordering and
-# agreement become clean once the simulations are converged.)
+# E_\\mathrm{fermions}`. The distinguishable/bosonic bars are single short runs
+# (already close to the exact value); the fermionic bar is the 8-trajectory
+# sign-weighted estimate with its error bar.
 
 labels = ["bosons", "dist", "2B+1D", "fermions*"]
-sim = [bos["total"], dist["total"], mix["total"], fer_energy]
+sim = [bos["total"], dist["total"], mix["total"], fer_mean]
+sim_err = [0.0, 0.0, 0.0, fer_err]
 ref = [bos_ref, dist_ref, mix_ref, fer_ref]
 
 x = np.arange(len(labels))
 fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
-ax.bar(x - 0.2, np.array(sim) * 1e3, 0.4, label="PIMD (short run)")
-ax.bar(x + 0.2, np.array(ref) * 1e3, 0.4, label="analytical")
+ax.bar(x - 0.2, np.array(sim) * 1e3, 0.4, yerr=np.array(sim_err) * 1e3,
+       capsize=3, label="PIMD")
+ax.bar(x + 0.2, np.array(ref) * 1e3, 0.4, label="exact")
 ax.set_xticks(x, labels)
 ax.set_ylabel("total energy / mHa")
 ax.set_title("Three particles in a harmonic trap")
 ax.legend()
-ax.text(0.02, 0.02, "*fermions at 30 K, others at 17.4 K",
+ax.text(0.02, 0.02, "*fermions at 30 K (8 traj), others at 17.4 K (1 run)",
         transform=ax.transAxes, fontsize=8, color="gray")
-
-
-# %%
-# Convergence: averaging over independent trajectories
-# ----------------------------------------------------
-#
-# A single short run is noisy, but the dynamics are unbiased (NVT with a proper
-# thermostat), so the average over several **independent** trajectories -- each
-# started from a different random seed -- converges towards the exact value, and
-# the spread across trajectories gives a proper standard error of the mean.
-#
-# The script ``reference/run_convergence.py`` runs this study (10 trajectories
-# per case, parallelised across CPU cores, using the *same* short settings as
-# above). Running it reproduces the following table (energies in mHa):
-#
-# ===================  ==========================  =================
-# case                 trajectory average           analytical
-# ===================  ==========================  =================
-# 3 distinguishable    0.643 :math:`\\pm` 0.017      0.651
-# 3 bosons             0.569 :math:`\\pm` 0.017      0.580
-# 2 bosons + 1 dist    0.606 :math:`\\pm` 0.018      0.624
-# 3 fermions           see next section             0.912
-# ===================  ==========================  =================
-#
-# (10 trajectories per case; the fermionic case needs the weighted estimator of
-# the next section.)
-#
-# The three distinguishable/bosonic cases now agree with the analytical result
-# within about one standard error -- for equal-weight data (bosons, and the
-# average sign) averaging over trajectories simply removes the noise of a single
-# short run. The **fermionic** row is different and needs more care, as we now
-# explain.
 
 
 # %%
@@ -313,8 +364,8 @@ ax.text(0.02, 0.02, "*fermions at 30 K, others at 17.4 K",
 # (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) and used by
 # ``reference/run_convergence.py``.
 #
-# For 20 trajectories of 5000 steps the two estimators give (analytical
-# 0.912 mHa):
+# For 20 trajectories of 5000 steps the two estimators give (exact value
+# 1.053 mHa):
 #
 # ==========================  =====================  =============================
 # estimator                   mean (mHa)             error (mHa)
@@ -324,13 +375,22 @@ ax.text(0.02, 0.02, "*fermions at 30 K, others at 17.4 K",
 # SI weighted, using n_eff     1.11                   :math:`\\pm 0.087`  (n_eff=16 of 20)
 # ==========================  =====================  =============================
 #
-# Two lessons: the weighting **removes the bias** in the mean (1.45 -> 1.11),
-# and using the effective sample size gives an **honest, ~12% larger** error bar
+# Two lessons: the weighting **removes the bias** in the mean (the naive
+# mean-of-ratios sits at 1.45, the weighted estimate at 1.11), and using the
+# effective sample size gives an **honest, ~12% larger** error bar
 # (:math:`\\sqrt{M/n_\\mathrm{eff}}`) than pretending all :math:`M` trajectories
-# are equally informative. The residual gap to the exact 0.912 mHa is physical
-# (finite beads and the slow convergence of the sign) -- closing it needs far
-# more sampling than a couple-minute tutorial allows, which is the whole point
-# of the sign problem.
+# are equally informative. The weighted estimate 1.11 :math:`\\pm` 0.09 agrees
+# with the exact 1.053 mHa within its error bar -- there is *no* mysterious
+# fermionic discrepancy once (i) the correct benchmark is used and (ii) the
+# statistical error is estimated properly.
+#
+# .. admonition:: For production accuracy (out of scope here)
+#
+#    The runs in this tutorial are deliberately short and use only 12 beads, so
+#    the numbers "make sense" but are not tightly converged. To push the
+#    statistical error down and check convergence with the number of beads, see
+#    ``reference/run_convergence.py`` and ``reference/run_final_table.sh`` and
+#    the notes in ``reference/README.md``.
 
 
 # %%
