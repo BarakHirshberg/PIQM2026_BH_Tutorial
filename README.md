@@ -87,11 +87,7 @@ examples/bosons-fermions-pimd/
 ├── environment.yml             # conda/pip dependencies
 ├── bosons-fermions-pimd.py     # the tutorial (sphinx-gallery format)
 ├── analysis.py                 # output reader + EXACT energies + fermionic reweighting + weighted error
-├── data/                       # the four i-PI input files
-└── reference/                  # optional heavier studies (not needed for the tutorial)
-    ├── run_convergence.py      # N trajectories/case -> mean +/- error (SI weighting for fermions)
-    ├── run_final_table.sh      # well-sampled table + fermion bead-convergence scan
-    └── README.md               # the well-sampled reference numbers
+└── data/                       # the four i-PI input files
 ```
 
 The example directory follows the
@@ -147,22 +143,13 @@ with the exact 1.053** within error. `weighted_average()` in `analysis.py`
 reduces to the plain mean + `std/√M` when weights are equal, so the same code
 handles bosons and the average sign.
 
-### Reference / production accuracy (optional)
-
 The tutorial runs are deliberately short and use only 12 beads for fermions —
-enough to *make sense*, not to be tightly converged. To push the statistical
-error down and check convergence with the number of beads:
-
-```bash
-cd examples/bosons-fermions-pimd
-python reference/run_convergence.py                                 # N trajectories/case
-IPI_DRIVER=/path/to/i-pi-driver bash reference/run_final_table.sh   # full table + fermion P-scan
-```
-
-`reference/README.md` collects the well-sampled numbers. For these heavy runs
-the compiled **f90 driver** (`i-pi-driver -m harm3d`, built with `make` in the
-i-PI source `drivers/f90`) is several times faster; the tutorial itself only
-needs the pip driver.
+enough to *make sense*, not to be tightly converged. For production you would
+simply run more (and longer) trajectories, and increase the number of beads if
+needed; the estimators are the same. Building the compiled **f90 driver**
+(`i-pi-driver -m harm3d`, `make` in the i-PI source `drivers/f90`) makes such
+runs several times faster, and the recipe uses it automatically if it is on
+your `PATH`.
 
 ## Background and references
 

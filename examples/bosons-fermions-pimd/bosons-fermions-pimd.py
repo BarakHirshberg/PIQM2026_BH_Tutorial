@@ -361,11 +361,11 @@ ax.text(0.02, 0.02, "*fermions at 30 K (8 traj), others at 17.4 K (1 run)",
 # weights are equal this reduces to the ordinary mean and
 # :math:`\\mathrm{std}/\\sqrt{M}`, which is why the bosonic rows above need no
 # special treatment. Both estimators are implemented in ``analysis.py``
-# (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) and used by
-# ``reference/run_convergence.py``.
+# (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) -- the same
+# functions the 8-trajectory demo above used.
 #
-# For 20 trajectories of 5000 steps the two estimators give (exact value
-# 1.053 mHa):
+# Running many more trajectories (here 20 of 5000 steps) makes the difference
+# between the two estimators obvious (exact value 1.053 mHa):
 #
 # ==========================  =====================  =============================
 # estimator                   mean (mHa)             error (mHa)
@@ -384,13 +384,11 @@ ax.text(0.02, 0.02, "*fermions at 30 K (8 traj), others at 17.4 K (1 run)",
 # fermionic discrepancy once (i) the correct benchmark is used and (ii) the
 # statistical error is estimated properly.
 #
-# .. admonition:: For production accuracy (out of scope here)
-#
-#    The runs in this tutorial are deliberately short and use only 12 beads, so
-#    the numbers "make sense" but are not tightly converged. To push the
-#    statistical error down and check convergence with the number of beads, see
-#    ``reference/run_convergence.py`` and ``reference/run_final_table.sh`` and
-#    the notes in ``reference/README.md``.
+# The runs in this tutorial are deliberately short and use only 12 beads for the
+# fermions -- enough to "make sense", not to be tightly converged. For
+# production you would simply run more (and longer) trajectories and, if needed,
+# increase the number of beads; the estimators above are exactly what you would
+# use.
 
 
 # %%

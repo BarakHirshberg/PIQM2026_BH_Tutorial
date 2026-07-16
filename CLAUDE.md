@@ -18,9 +18,6 @@ examples/bosons-fermions-pimd/
   analysis.py               # i-PI output reader, EXACT analytical energies, fermionic reweighting + SI weighted error
   environment.yml           # conda: python + pip:[ipi>=3.2, numpy, matplotlib, ase, chemiscope]
   data/*.xml                # 4 i-PI inputs: 3dist / 3bosons / 2bosons1dist / 3fermions
-  reference/
-    run_convergence.py      # multi-trajectory study: mean +/- error, SI weighting for fermions
-    run_final_table.sh      # generates the well-sampled reference table (fermion P-scan)
 README.md, noxfile.py, LICENSE(BSD-3)
 SM.pdf                      # Barak's paper SI (gitignored, NOT redistributed) — source of the fermion error method
 ```
@@ -63,8 +60,8 @@ larger than assuming n=M. There is a dedicated recipe + README section on this.
 ## Status (handoff — continue on a faster machine)
 
 Everything below is committed and pushed to
-`https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial` (branch `master`,
-HEAD = "Add reference/ appendix README..."). Working tree is clean.
+`https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial` (branch `master`).
+Working tree is clean; `git pull` to get the latest.
 
 DONE:
 - [x] **Root cause found & fixed**: wrong hard-coded 3-fermion benchmark
@@ -74,36 +71,33 @@ DONE:
       (`weighted_average`, `fermionic_trajectory_estimate`), unit-checked.
 - [x] f90 driver: build + validate + recipe **auto-detection**
       (`driver_command()` uses `i-pi-driver -m harm3d` if on PATH, else
-      `i-pi-py_driver -m harmonic`). `IPI_DRIVER` env in run_convergence.py.
-- [x] Socket-race fix (poll for `/tmp/ipi_<addr>` before launching driver), in
-      both run_convergence.py and the recipe's `_run_seeded`.
+      `i-pi-py_driver -m harmonic`).
+- [x] Socket-race fix (poll for `/tmp/ipi_<addr>` before launching the driver,
+      which does not retry) in the recipe's `_run_seeded`.
 - [x] **Tutorial redesigned** per Barak's decisions (2026-07-16): NOT tightly
       converged; keep it laptop-light and "make sense." Fermion section = one
       short run (flagged unreliable) + a **light parallel multi-trajectory**
       average (`run_fermion_ensemble`, 8 short trajectories, sign-weighted)
       whose large-but-honest error bar brackets the exact value. All 0.912 →
-      1.053 fixed in recipe + README. Heavy runs moved to `reference/` appendix.
-- [x] `reference/README.md` appendix (benchmarks, bead scan, error check).
+      1.053 fixed in recipe + README.
+- [x] **Removed the whole `reference/` directory** (Barak's call 2026-07-16):
+      with exact analytical benchmarks and the inline light multi-trajectory
+      demo, the heavy well-sampled reference table was redundant. The SI error
+      estimator lives in `analysis.py` and is used inline by the recipe.
 
-REMAINING (do these on the faster machine):
-- [ ] **VERIFY the recipe end-to-end** — this was NOT confirmed (the run was
-      cut off). Run it and check the new multi-trajectory cell works and the
+REMAINING — exactly two things, do on the faster machine:
+- [ ] **1. VERIFY the recipe end-to-end** — NOT yet confirmed (the run was cut
+      off here). Run it and check the new multi-trajectory cell works and the
       numbers make sense:
       `cd examples/bosons-fermions-pimd && MPLBACKEND=Agg python bosons-fermions-pimd.py`
       (put the f90 `i-pi-driver` on PATH to make it fast). Expected: dist/boson/
       mixed single runs near the exact values; fermion 8-traj weighted energy
       ~1.0–1.1 mHa with a large error bar that brackets 1.053; two figures render.
-- [ ] **Finish the reference table** — `reference/run_final_table.sh` was
-      interrupted (slow machine). Partial results captured: dist 0.663±0.005,
-      bosons 0.591±0.005 (both ~2% high = finite-P(32)/dt(10) systematic, honest
-      and expected). Mixed + fermion P-scan (P=12/24/48) NOT done. Re-run on the
-      fast machine (`IPI_DRIVER=... bash reference/run_final_table.sh`) and drop
-      the real numbers into `reference/README.md` (it currently has representative
-      light-study bead-scan numbers as placeholders, clearly labelled).
-- [ ] **Noob-grad-student test**: spawn an agent role-playing an inexperienced
-      i-PI user; have it create a FRESH env (`./env_noobtest`) following ONLY
-      README.md, run the whole recipe, and report friction points; then fix them
-      and remove the test env. (Fresh env tests the pip-only path honestly.)
+- [ ] **2. Noob-grad-student test**: spawn an agent role-playing an
+      inexperienced i-PI user; have it create a FRESH env (`./env_noobtest`)
+      following ONLY README.md, run the whole recipe, and report friction points;
+      then fix them and remove the test env. (Fresh env tests the pip-only path
+      honestly.)
 
 Known open question (minor, not blocking): with tight statistics all cases sit
 ~1–2% (≈2σ) above exact — a small finite-P(32)/dt(10 fs) systematic. Barak is
