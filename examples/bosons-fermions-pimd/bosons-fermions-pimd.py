@@ -333,7 +333,16 @@ ax.legend()
 #
 # Each is a separate template in ``data/`` differing only in that one line. We
 # run all three at the same temperature and number of beads and read off the
-# total energy.
+# total energy. Concretely, that line is:
+#
+# .. code-block:: xml
+#
+#     <bosons> []        </bosons>   <!-- distinguishable: no exchange -->
+#     <bosons> [0, 1, 2] </bosons>   <!-- three bosons: every pair may exchange -->
+#     <bosons> [0, 1]    </bosons>   <!-- mixture: 0,1 exchange, atom 2 stays distinct -->
+#
+# Exchange means the ring polymers of the listed atoms are allowed to connect
+# into longer rings; the atoms left out stay closed on themselves.
 #
 # .. warning::
 #    The **centroid-virial** kinetic estimator is *not* valid under bosonic
@@ -341,6 +350,17 @@ ax.legend()
 #    virial (``virial_fq``) and thermodynamic (``kinetic_td``) estimators
 #    instead. The total energy from the (always-valid) primitive virial is what
 #    we compare below.
+#
+# You can see this in the ``<properties>`` line of each input: the
+# distinguishable case keeps ``kinetic_cv``, while the exchange cases drop it.
+#
+# .. code-block:: xml
+#
+#     <!-- distinguishable -->
+#     <properties ...> [ ..., kinetic_cv, kinetic_td, potential, virial_fq ] </properties>
+#
+#     <!-- bosons / mixture: no kinetic_cv -->
+#     <properties ...> [ ..., kinetic_td, potential, virial_fq ] </properties>
 
 BHW_SWITCH = 2
 BEADS_SWITCH = 16
@@ -422,6 +442,14 @@ ax.legend()
 # evaluated by a hand-written module; **i-PI 3.x computes it for us** and writes
 # the sign to the ``fermionic_sign`` column, so we just request that property
 # and reweight in two lines (see ``analysis.reweighted_fermionic_energy``).
+#
+# In the input, there is no separate "fermion mode": you run an ordinary
+# *bosonic* simulation and simply add ``fermionic_sign`` to the property list:
+#
+# .. code-block:: xml
+#
+#     <bosons> [0, 1, 2] </bosons>                     <!-- still a bosonic run -->
+#     <properties ...> [ ..., virial_fq, fermionic_sign ] </properties>
 #
 # When the average sign :math:`\langle s\rangle` approaches zero the estimator
 # becomes a ratio of two tiny, noisy numbers -- the fermionic **sign problem**.
