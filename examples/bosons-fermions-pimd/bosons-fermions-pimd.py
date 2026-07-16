@@ -86,10 +86,11 @@ from scripts import plots
 # ``run_ipi`` starts from one of the template inputs in ``data/`` (one per case),
 # overrides only the knobs we vary -- which atoms exchange, temperature, beads,
 # seed, length -- runs the simulation with i-PI's built-in ``harmonic`` driver,
-# and returns the output file for analysis. Everything below is physics and
-# analysis; each case is one input file plus a few lines to analyze it.
+# and returns the output file for analysis. Every case in this tutorial runs
+# several inputs at once, so we import ``run_parallel``; everything below is
+# physics and analysis.
 
-from scripts.ipi_runs import run_ipi, run_parallel
+from scripts.ipi_runs import run_parallel
 
 
 # %%
@@ -296,29 +297,38 @@ plots.plot_statistics_bars(
 #    the Pauli exclusion principle lifts the fermionic ground state to
 #    :math:`6.5\,\hbar\omega_0`, well above the bosonic :math:`4.5\,\hbar\omega_0`.
 
-# A fermion run is an ordinary bosonic run (input_3fermions.xml just adds the
-# fermionic_sign property); the fermionic energy comes out in analysis.
-out = run_ipi("input_3fermions.xml")
-mean_sign, fer_energy = analysis.reweighted_fermionic_energy(out, SKIP)
-fer_ref = analysis.analytical_energy(30.0, "fermionic")
-
-print("Three fermions (T = 30 K, single short run)")
-print(f"  average sign <s>                  : {mean_sign:.4f}")
-print(f"  fermionic total energy            : {fer_energy * 1e3:.4f} mHa")
-print(f"  analytical total energy           : {fer_ref * 1e3:.4f} mHa")
-
-
 # %%
-# Don't trust one fermionic run -- average several
-# ------------------------------------------------
+# Averaging trajectories: weight them by the sign
+# -----------------------------------------------
 #
-# That single fermionic number is almost meaningless: the average sign is small,
-# so the reweighted energy has a huge variance and one short run can land far
-# from the truth. The honest thing is to run **several independent trajectories**
-# (different random seeds) and combine them. Because the sign varies between
-# trajectories, we use the sign-*weighted* estimator explained in the "Error
-# estimation" section below (not a plain average). Here we run a handful of short
-# trajectories in parallel -- still only a couple of minutes on a laptop.
+# A single fermionic run is almost meaningless: the reweighted energy is a ratio
+# :math:`\langle\varepsilon s\rangle/\langle s\rangle` with a large variance, so
+# one short trajectory can land far from the truth (you will see the scatter
+# below). So we run **several independent trajectories** (different seeds) and
+# combine them -- but *not* with a plain average. A trajectory that happened to
+# sample a smaller average sign has a more poorly-determined ratio and should
+# **count for less**: trajectories carry different *effective* amounts of
+# information.
+#
+# The right way (SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* 152,
+# 171102, 2020) weights each trajectory :math:`j` by its total sign
+# :math:`W_j = \sum_\mathrm{steps} s`, and measures an *effective* sample size:
+#
+# .. math::
+#
+#    \bar E_F = \frac{\sum_j W_j E_j}{\sum_j W_j}, \qquad
+#    n_\mathrm{eff} = \frac{\left(\sum_j W_j\right)^2}{\sum_j W_j^2}, \qquad
+#    \sigma_E^2 = \frac{n_\mathrm{eff}}{n_\mathrm{eff}-1}
+#                 \frac{\sum_j W_j (E_j - \bar E_F)^2}{\sum_j W_j},
+#
+# with statistical error :math:`\sigma_E/\sqrt{n_\mathrm{eff}}`. The weighted mean
+# is exactly what you get by pooling every sample from every trajectory into one
+# long run (:math:`\sum \varepsilon s / \sum s`); the naive equal-weight mean of
+# the :math:`E_j` is a *different* estimator. When all weights are equal,
+# :math:`n_\mathrm{eff} = M` and it reduces to the ordinary mean with
+# :math:`\mathrm{std}/\sqrt{M}` -- which is why the bosonic runs needed no special
+# treatment. Both live in ``analysis.py`` (:func:`weighted_average`,
+# :func:`fermionic_trajectory_estimate`); we compute both below and compare.
 
 
 # Eight independent fermionic trajectories with different random seeds, together.
@@ -328,86 +338,62 @@ jobs = [
 ]
 outputs = run_parallel(jobs)
 
-# Analysis: for each trajectory, its reweighted energy E_j and total sign weight
-# W_j; then combine with the sign-weighted estimator (both live in analysis.py).
+# Per-trajectory reweighted energy E_j and total sign weight W_j.
 E, W, signs = [], [], []
 for o in outputs:
     e_j, w_j, s_j = analysis.fermionic_trajectory_estimate(o, SKIP)
     E.append(e_j)
     W.append(w_j)
     signs.append(s_j)
-fer_mean, fer_err, n_eff = analysis.weighted_average(E, W)
-ens_sign = float(np.mean(signs))
 fer_traj = np.array(E)
+fer_ref = analysis.analytical_energy(30.0, "fermionic")
 
-print("Three fermions (T = 30 K, 8 short trajectories, sign-weighted)")
-print(f"  average sign <s>                  : {ens_sign:.3f}")
+# The WRONG way: average the per-trajectory energies with equal weight.
+naive_mean = fer_traj.mean()
+naive_err = fer_traj.std(ddof=1) / np.sqrt(len(fer_traj))
+# The RIGHT way: sign-weighted mean with an effective sample size.
+fer_mean, fer_err, n_eff = analysis.weighted_average(E, W)
+
+print("Three fermions (T = 30 K, 8 short trajectories)")
+print(f"  average sign <s>              : {np.mean(signs):.3f}")
+print(f"  exact                         : {fer_ref * 1e3:.3f} mHa")
 print(
-    f"  weighted fermionic energy         : {fer_mean * 1e3:.4f} +/- {fer_err * 1e3:.4f} mHa"
+    f"  naive equal-weight mean       : {naive_mean * 1e3:.3f} +/- {naive_err * 1e3:.3f} mHa"
 )
-print(f"  analytical total energy           : {fer_ref * 1e3:.4f} mHa")
-print(f"  (effective sample size n_eff = {n_eff:.1f} of 8)")
+print(
+    f"  sign-weighted mean            : {fer_mean * 1e3:.3f} +/- {fer_err * 1e3:.3f} mHa"
+)
+print(f"  effective sample size n_eff   : {n_eff:.1f} of 8")
 
 # %%
-# The individual trajectories (grey points) scatter wildly -- some land far from
-# the exact value -- yet the sign-weighted average (blue, with its error bar)
-# *brackets* the analytical result. That large-but-honest error bar is the
-# fingerprint of the fermionic **sign problem**: the numbers make sense, they are
-# just noisy, and tightening them needs far more sampling. Contrast this with the
-# distinguishable/bosonic runs above, whose single short runs were already close
-# because there is no sign to fight.
+# Two things to read off. First, the **naive equal-weight mean** (~1.11 mHa here)
+# sits *above* the sign-weighted mean (~1.06 mHa): one trajectory happened to
+# sample a smaller sign and returned a larger, noisier energy
+# (:math:`E_j \approx 1.57`), and equal weighting over-counts it. The
+# **sign-weighted mean** down-weights that trajectory and lands on the exact
+# 1.053 mHa within its error bar. Second, because the trajectories carry unequal
+# sign weight, the **effective sample size** is :math:`n_\mathrm{eff}\approx 7` of
+# 8, so the honest error bar :math:`\sigma/\sqrt{n_\mathrm{eff}}` is ~8% larger
+# than :math:`\mathrm{std}/\sqrt{M}`.
+#
+# At these deliberately mild settings (30 K, average sign ~0.4) the two means are
+# close -- the correction is modest. But the sign-weighted estimator is the
+# principled one, and it becomes *essential* as the sign shrinks (colder
+# temperatures, more particles, more beads): there the naive mean-of-ratios breaks
+# down as individual trajectory ratios blow up (they can even go negative or far
+# above 1), while the sign-weighted pooling stays meaningful.
+#
+# The plot shows the individual trajectories scattering (grey) around the
+# sign-weighted mean (blue, with its error bar), which brackets the exact value --
+# the large-but-honest error bar is the fingerprint of the **sign problem**.
 
 plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 
-
 # %%
-# Error estimation for fermions: weight trajectories by the sign
-# --------------------------------------------------------------
-#
-# For fermions a *single* run gives one number with no error bar, and naively
-# averaging the per-trajectory reweighted energies
-# :math:`E_j = \langle \varepsilon\, s\rangle_j / \langle s\rangle_j` with a
-# plain :math:`\mathrm{std}/\sqrt{M}` is **biased**: a trajectory that happened
-# to sample mostly low-weight (small-sign) configurations yields a wild ratio,
-# yet counts as much as a well-converged one.
-#
-# The fix (SI of Hirshberg, Invernizzi & Parrinello, *J. Chem. Phys.* **152**,
-# 171102 (2020)) is to weight each trajectory by its total weight in the
-# reweighted ensemble, :math:`W_j = \sum_\mathrm{steps} s` (the sum of the
-# instantaneous signs), and to use an *effective* sample size:
-#
-# .. math::
-#
-#    \bar E_F = \frac{\sum_j W_j E_j}{\sum_j W_j}, \qquad
-#    n_\mathrm{eff} = \frac{\left(\sum_j W_j\right)^2}{\sum_j W_j^2}, \qquad
-#    \sigma_E^2 = \frac{n_\mathrm{eff}}{n_\mathrm{eff}-1}
-#                 \frac{\sum_j W_j (E_j - \bar E_F)^2}{\sum_j W_j},
-#
-# with statistical error :math:`\sigma_E/\sqrt{n_\mathrm{eff}}`. When all
-# weights are equal this reduces to the ordinary mean and
-# :math:`\mathrm{std}/\sqrt{M}`, which is why the bosonic runs above needed no
-# special treatment. Both estimators are implemented in ``analysis.py``
-# (:func:`weighted_average`, :func:`fermionic_trajectory_estimate`) -- the same
-# functions the 8-trajectory demo above used.
-#
-# Running many more trajectories (here 20 of 5000 steps) makes the difference
-# between the two estimators obvious. The naive mean-of-ratios is **biased high**,
-# :math:`1.45 \pm 0.32` mHa, while the sign-weighted estimator gives
-# :math:`1.11` mHa; using the effective sample size
-# (:math:`n_\mathrm{eff} = 16` of 20) rather than pretending all 20 trajectories
-# are equally informative widens its error bar honestly from
-# :math:`\pm 0.078` to :math:`\pm 0.087` mHa. So the two lessons are that the
-# weighting **removes the bias** in the mean, and :math:`n_\mathrm{eff}` gives an
-# **honest, ~12% larger** error bar (:math:`\sqrt{M/n_\mathrm{eff}}`). The
-# weighted estimate :math:`1.11 \pm 0.09` mHa agrees with the exact 1.053 mHa
-# within its error bar -- there is *no* mysterious fermionic discrepancy once
-# (i) the correct benchmark is used and (ii) the statistical error is estimated
-# properly.
-#
-# The runs in this tutorial are deliberately short and use only 12 beads for the
-# fermions -- enough to "make sense", not to be tightly converged. For production
-# you would simply run more (and longer) trajectories and, if needed, increase
-# the number of beads; the estimators above are exactly what you would use.
+# The runs here are deliberately short and use only 12 beads for the fermions --
+# enough to "make sense", not to be tightly converged. For production you would
+# run more (and longer) trajectories and, if needed, more beads; the sign-weighted
+# estimator above is exactly what you would use.
 
 
 # %%
