@@ -32,14 +32,6 @@ The forces come from the built-in ``harmonic`` potential of i-PI's Python
 driver, so the whole recipe installs from PyPI -- no compiled driver required.
 """
 
-import concurrent.futures
-import os
-import re
-import shutil
-import subprocess
-import tempfile
-import time
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -76,136 +68,26 @@ import analysis
 
 
 # %%
-# Running an i-PI simulation from Python
-# --------------------------------------
+# How we run each case
+# --------------------
 #
-# i-PI uses a client-server model: the ``i-pi`` server evolves the ring polymers
-# and a *driver* computes the forces, talking to each other over a socket. The
-# driver is passed the spring constant
-# :math:`k = 1.216\times10^{-8}\,\mathrm{Ha/Bohr^2}`, which corresponds to
-# :math:`\hbar\omega_0 = 3\,\mathrm{meV}`.
+# The mechanics of driving i-PI from Python -- launching the ``i-pi`` server and
+# a force driver that talk over a socket, and editing the XML input -- are not
+# the subject of this tutorial, so they live in ``scripts/ipi_runs.py``. From
+# here we only need two calls:
 #
-# For the forces we use the harmonic driver that ships with i-PI. The
-# pure-Python ``i-pi-py_driver`` (mode ``harmonic``) always works and needs no
-# compilation; if the faster compiled Fortran driver ``i-pi-driver`` (mode
-# ``harm3d``) is on the ``PATH`` we use it instead -- it is a few times faster
-# and gives identical results.
+# .. code-block:: python
 #
-# The helper below takes one of the four template inputs in ``data/`` and runs
-# it in an isolated temporary directory, optionally overriding the temperature,
-# the number of beads, the random seed or the number of steps. This lets us
-# drive *every* simulation in the tutorial from a single function.
+#     out = run_ipi("input_3bosons.xml", temp=17.4, nbeads=16)   # -> path to data.out
+#     outs = run_parallel(jobs)                                  # several at once
+#
+# ``run_ipi`` starts from one of the template inputs in ``data/`` (one per case),
+# overrides only the knobs we vary -- which atoms exchange, temperature, beads,
+# seed, length -- runs the simulation with i-PI's built-in ``harmonic`` driver,
+# and returns the output file for analysis. Everything below is physics and
+# analysis; each case is one input file plus a few lines to analyze it.
 
-SPRING_CONSTANT = "1.21647924e-8"  # Ha/Bohr^2, matches hbar*omega0 = 3 meV
-
-
-def driver_command(address):
-    """Return the force-driver command, preferring the compiled f90 driver."""
-    if shutil.which("i-pi-driver") is not None:  # compiled Fortran driver
-        return [
-            "i-pi-driver",
-            "-m",
-            "harm3d",
-            "-o",
-            SPRING_CONSTANT,
-            "-u",
-            "-a",
-            address,
-        ]
-    return [
-        "i-pi-py_driver",
-        "-m",
-        "harmonic",
-        "-o",
-        SPRING_CONSTANT,
-        "-u",
-        "-a",
-        address,
-    ]
-
-
-def _prepare_input(
-    src_xml, address, temp=None, nbeads=None, seed=None, total_steps=None
-):
-    """Read a template input from ``data/`` and apply the requested overrides."""
-    text = open(f"data/{src_xml}").read()
-    text = re.sub(
-        r"<address>.*?</address>", f"<address>{address}</address>", text, flags=re.S
-    )
-    if temp is not None:
-        # update both the ensemble temperature and the thermal velocity init
-        text = re.sub(
-            r"(<temperature[^>]*>)\s*[\d.eE+-]+\s*(</temperature>)",
-            rf"\g<1> {temp} \g<2>",
-            text,
-        )
-        text = re.sub(
-            r"(<velocities[^>]*>)\s*[\d.eE+-]+\s*(</velocities>)",
-            rf"\g<1> {temp} \g<2>",
-            text,
-        )
-    if nbeads is not None:
-        text = re.sub(r'nbeads="\d+"', f'nbeads="{nbeads}"', text)
-    if seed is not None:
-        text = re.sub(r"<seed>.*?</seed>", f"<seed> {seed} </seed>", text, flags=re.S)
-    if total_steps is not None:
-        text = re.sub(
-            r"<total_steps>.*?</total_steps>",
-            f"<total_steps> {total_steps} </total_steps>",
-            text,
-            flags=re.S,
-        )
-    return text
-
-
-def run_ipi(src_xml, address, **overrides):
-    """Run one i-PI + driver simulation and return the path to its ``data.out``.
-
-    ``overrides`` may set ``temp`` (K), ``nbeads``, ``seed`` or ``total_steps``;
-    anything left out keeps the template value. Each run happens in its own
-    temporary directory so several can run concurrently without clashing.
-    """
-    tmp = tempfile.mkdtemp(prefix="ipi_run_")
-    with open(os.path.join(tmp, "input.xml"), "w") as fh:
-        fh.write(_prepare_input(src_xml, address, **overrides))
-
-    sock = f"/tmp/ipi_{address}"
-    if os.path.exists(sock):
-        os.remove(sock)
-    # Cap BLAS/OpenMP to one thread per child: we parallelise over trajectories
-    # ourselves, so a multithreaded numpy/BLAS would oversubscribe the CPU.
-    env = {
-        **os.environ,
-        "OMP_NUM_THREADS": "1",
-        "MKL_NUM_THREADS": "1",
-        "OPENBLAS_NUM_THREADS": "1",
-    }
-    ipi = subprocess.Popen(
-        ["i-pi", "input.xml"],
-        cwd=tmp,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    for _ in range(120):  # wait for the socket before launching the driver
-        if os.path.exists(sock) or ipi.poll() is not None:
-            break
-        time.sleep(0.5)
-    drv = subprocess.Popen(
-        driver_command(address),
-        cwd=tmp,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    ipi.wait()
-    drv.wait()
-    return os.path.join(tmp, "data.out")
-
-
-def temperature_for(bhw):
-    """Kelvin temperature corresponding to a given beta*hbar*omega0."""
-    return analysis.omega0() / (bhw * analysis.KELVIN_TO_HARTREE)
+from scripts.ipi_runs import run_ipi, run_parallel
 
 
 # %%
@@ -238,36 +120,28 @@ SKIP = 1000  # rows discarded as thermalisation (properties written every step)
 
 omega0 = analysis.omega0()
 
-
-def boson_point(bhw, nbeads):
-    """Run bosons at inverse temperature ``bhw`` and return the mean total energy
-    and its block-averaged statistical error, in units of hbar*omega0."""
-    out = run_ipi(
+# Run bosons at each temperature: the *same* input (``<bosons> [0, 1, 2]``), only
+# the temperature and bead count change. The runs are independent, so we launch
+# them together.
+jobs = [
+    (
         "input_3bosons.xml",
-        f"bf-bsweep-{bhw}",
-        temp=temperature_for(bhw),
-        nbeads=nbeads,
-        total_steps=SWEEP_STEPS,
+        f"bsweep-{bhw}",
+        dict(temp=analysis.temperature_for(bhw), nbeads=P, total_steps=SWEEP_STEPS),
     )
-    mean, err = analysis.block_average(analysis.total_energy_series(out, SKIP))
-    shutil.rmtree(os.path.dirname(out), ignore_errors=True)
-    return mean / omega0, err / omega0
+    for bhw, P in zip(SWEEP_BHW, SWEEP_BEADS)
+]
+outputs = run_parallel(jobs)
 
-
-# The four temperatures are independent runs, so we launch them in parallel.
-with concurrent.futures.ThreadPoolExecutor(max_workers=len(SWEEP_BHW)) as pool:
-    sweep = list(
-        pool.map(
-            lambda i: boson_point(SWEEP_BHW[i], SWEEP_BEADS[i]),
-            range(len(SWEEP_BHW)),
-        )
-    )
-sweep_e = [m for m, _ in sweep]
-sweep_err = [e for _, e in sweep]
-for bhw, nbeads, (m, e) in zip(SWEEP_BHW, SWEEP_BEADS, sweep):
+# Analysis: block-averaged total energy (the estimator valid under exchange),
+# in units of hbar*omega0.
+sweep = [analysis.block_average(analysis.total_energy_series(o, SKIP)) for o in outputs]
+sweep_e = [m / omega0 for m, _ in sweep]
+sweep_err = [e / omega0 for _, e in sweep]
+for bhw, P, m, e in zip(SWEEP_BHW, SWEEP_BEADS, sweep_e, sweep_err):
     print(
-        f"bosons: beta*hbar*omega0 = {bhw}  (T = {temperature_for(bhw):5.1f} K, "
-        f"P = {nbeads:2d})  ->  E/hw0 = {m:.3f} +/- {e:.3f}"
+        f"beta*hbar*omega0 = {bhw}  (T = {analysis.temperature_for(bhw):5.1f} K, "
+        f"P = {P:2d})  ->  E/hw0 = {m:.3f} +/- {e:.3f}"
     )
 
 # %%
@@ -281,7 +155,7 @@ for bhw, nbeads, (m, e) in zip(SWEEP_BHW, SWEEP_BEADS, sweep):
 # point "make sense" rather than look like a bug.
 
 bhw_fine = np.linspace(0.5, 5.5, 80)
-temps_fine = [temperature_for(b) for b in bhw_fine]
+temps_fine = [analysis.temperature_for(b) for b in bhw_fine]
 
 fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
 ax.plot(
@@ -364,33 +238,31 @@ ax.legend()
 
 BHW_SWITCH = 2
 BEADS_SWITCH = 16
-T_SWITCH = temperature_for(BHW_SWITCH)
+T_SWITCH = analysis.temperature_for(BHW_SWITCH)
 
+# (label, input template, type for the exact reference)
 cases = [
-    ("distinguishable", "input_3dist.xml", "dist", "bf-3dist"),
-    ("bosons", "input_3bosons.xml", "bosonic", "bf-3bosons"),
-    ("2 bosons + 1 dist", "input_2bosons1dist.xml", "mixed", "bf-2bosons1dist"),
+    ("distinguishable", "input_3dist.xml", "dist"),
+    ("bosons", "input_3bosons.xml", "bosonic"),
+    ("2 bosons + 1 dist", "input_2bosons1dist.xml", "mixed"),
 ]
-
-
-def switch_point(xml, address):
-    """Run one statistics case at the comparison temperature; return the mean
-    total energy and its block-averaged error (Ha)."""
-    out = run_ipi(
-        xml, address, temp=T_SWITCH, nbeads=BEADS_SWITCH, total_steps=SWEEP_STEPS
+jobs = [
+    (
+        xml,
+        f"switch-{ref}",
+        dict(temp=T_SWITCH, nbeads=BEADS_SWITCH, total_steps=SWEEP_STEPS),
     )
-    mean, err = analysis.block_average(analysis.total_energy_series(out, SKIP))
-    shutil.rmtree(os.path.dirname(out), ignore_errors=True)
-    return mean, err
+    for _, xml, ref in cases
+]
+outputs = run_parallel(jobs)
 
-
-# the three cases are independent, so run them in parallel as well
-with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as pool:
-    switch = list(pool.map(lambda c: switch_point(c[1], c[3]), cases))
+switch = [
+    analysis.block_average(analysis.total_energy_series(o, SKIP)) for o in outputs
+]
 switch_sim = [m for m, _ in switch]
 switch_err = [e for _, e in switch]
-switch_ref = [analysis.analytical_energy(T_SWITCH, c[2]) for c in cases]
-for (name, _, _, _), (m, e), ref in zip(cases, switch, switch_ref):
+switch_ref = [analysis.analytical_energy(T_SWITCH, ref) for _, _, ref in cases]
+for (name, _, _), m, e, ref in zip(cases, switch_sim, switch_err, switch_ref):
     print(
         f"{name:20s} (T = {T_SWITCH:.1f} K): PIMD {m * 1e3:.3f} +/- {e * 1e3:.3f} mHa  "
         f"exact {ref * 1e3:.3f} mHa"
@@ -467,10 +339,11 @@ ax.legend()
 #    lifts the fermionic ground state to :math:`6.5\,\hbar\omega_0`, well above
 #    the bosonic :math:`4.5\,\hbar\omega_0`.
 
-fer_out = run_ipi("input_3fermions.xml", "bf-3fermions")
-mean_sign, fer_energy = analysis.reweighted_fermionic_energy(fer_out, SKIP)
+# A fermion run is an ordinary bosonic run (input_3fermions.xml just adds the
+# fermionic_sign property); the fermionic energy comes out in analysis.
+out = run_ipi("input_3fermions.xml")
+mean_sign, fer_energy = analysis.reweighted_fermionic_energy(out, SKIP)
 fer_ref = analysis.analytical_energy(30.0, "fermionic")
-shutil.rmtree(os.path.dirname(fer_out), ignore_errors=True)
 
 print("Three fermions (T = 30 K, single short run)")
 print(f"  average sign <s>                  : {mean_sign:.4f}")
@@ -491,35 +364,24 @@ print(f"  analytical total energy           : {fer_ref * 1e3:.4f} mHa")
 # trajectories in parallel -- still only a couple of minutes on a laptop.
 
 
-def run_fermion_ensemble(n_traj, skip_rows):
-    """Run ``n_traj`` short fermionic trajectories (different seeds) in parallel
-    and combine them with the sign-weighted estimator. Returns
-    ``(mean, error, n_eff, mean_sign, per_traj_energies)``."""
-    seeds = [4001 + 137 * i for i in range(n_traj)]
-    workers = min(n_traj, max(1, (os.cpu_count() or 2) // 2))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        outs = list(
-            pool.map(
-                lambda i: run_ipi(
-                    "input_3fermions.xml", f"bf-fmulti-{i}", seed=seeds[i]
-                ),
-                range(n_traj),
-            )
-        )
-    E, W, signs = [], [], []
-    for out in outs:
-        e_j, w_j, s_j = analysis.fermionic_trajectory_estimate(out, skip_rows)
-        E.append(e_j)
-        W.append(w_j)
-        signs.append(s_j)
-        shutil.rmtree(os.path.dirname(out), ignore_errors=True)
-    mean, error, n_eff = analysis.weighted_average(E, W)
-    return mean, error, n_eff, float(np.mean(signs)), np.array(E)
+# Eight independent fermionic trajectories with different random seeds, together.
+seeds = [4001 + 137 * i for i in range(8)]
+jobs = [
+    ("input_3fermions.xml", f"fmulti-{i}", dict(seed=s)) for i, s in enumerate(seeds)
+]
+outputs = run_parallel(jobs)
 
-
-fer_mean, fer_err, n_eff, ens_sign, fer_traj = run_fermion_ensemble(
-    n_traj=8, skip_rows=SKIP
-)
+# Analysis: for each trajectory, its reweighted energy E_j and total sign weight
+# W_j; then combine with the sign-weighted estimator (both live in analysis.py).
+E, W, signs = [], [], []
+for o in outputs:
+    e_j, w_j, s_j = analysis.fermionic_trajectory_estimate(o, SKIP)
+    E.append(e_j)
+    W.append(w_j)
+    signs.append(s_j)
+fer_mean, fer_err, n_eff = analysis.weighted_average(E, W)
+ens_sign = float(np.mean(signs))
+fer_traj = np.array(E)
 
 print("Three fermions (T = 30 K, 8 short trajectories, sign-weighted)")
 print(f"  average sign <s>                  : {ens_sign:.3f}")

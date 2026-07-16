@@ -257,6 +257,11 @@ def omega0():
     return np.sqrt(SPRING_CONSTANT / MASS)
 
 
+def temperature_for(bhw):
+    """Kelvin temperature corresponding to a dimensionless beta*hbar*omega0."""
+    return omega0() / (bhw * KELVIN_TO_HARTREE)
+
+
 def analytical_energy(temp=17.4, sys_type="dist"):
     """Analytical mean total energy (Ha) at temperature ``temp`` (K).
 
