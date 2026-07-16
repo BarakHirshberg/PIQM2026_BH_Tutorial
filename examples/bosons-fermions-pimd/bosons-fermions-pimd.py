@@ -24,6 +24,7 @@ driver, so the whole recipe installs from PyPI -- no compiled driver required.
 """
 
 import os
+import shutil
 import subprocess
 import time
 
@@ -67,15 +68,27 @@ import analysis
 # --------------------------------------
 #
 # i-PI uses a client-server model: the ``i-pi`` server evolves the ring polymers
-# and a *driver* computes the forces, talking to each other over a socket. Here
-# the driver is ``i-pi-py_driver`` with the ``harmonic`` PES; ``-o`` passes the
-# spring constant :math:`k = 1.216\\times10^{-8}\\,\\mathrm{Ha/Bohr^2}` matching
+# and a *driver* computes the forces, talking to each other over a socket.
+# ``-o`` passes the spring constant
+# :math:`k = 1.216\\times10^{-8}\\,\\mathrm{Ha/Bohr^2}` matching
 # :math:`\\hbar\\omega_0 = 3\\,\\mathrm{meV}`.
 #
-# The helper below launches both processes, waits for them to finish, and stores
-# the output of each run under a case-specific name (``data_<tag>.out``).
+# For the forces we use the harmonic driver that ships with i-PI. The
+# pure-Python ``i-pi-py_driver`` (mode ``harmonic``) always works and needs no
+# compilation; if the faster compiled Fortran driver ``i-pi-driver`` (mode
+# ``harm3d``) is on the ``PATH`` we use it instead -- it is a few times faster
+# and gives identical results. The helper below picks whichever is available,
+# launches both processes, waits, and stores the output of each run under a
+# case-specific name (``data_<tag>.out``).
 
 SPRING_CONSTANT = "1.21647924e-8"  # Ha/Bohr^2
+
+
+def driver_command(address):
+    """Return the force-driver command, preferring the compiled f90 driver."""
+    if shutil.which("i-pi-driver") is not None:  # compiled Fortran driver
+        return ["i-pi-driver", "-m", "harm3d", "-o", SPRING_CONSTANT, "-u", "-a", address]
+    return ["i-pi-py_driver", "-m", "harmonic", "-o", SPRING_CONSTANT, "-u", "-a", address]
 
 
 def run_case(tag, xml, address):
@@ -90,11 +103,7 @@ def run_case(tag, xml, address):
 
     ipi = subprocess.Popen(["i-pi", f"data/{xml}"], stdout=subprocess.DEVNULL)
     time.sleep(2)  # give i-PI time to open the socket
-    driver = subprocess.Popen(
-        ["i-pi-py_driver", "-m", "harmonic", "-o", SPRING_CONSTANT,
-         "-u", "-a", address],
-        stdout=subprocess.DEVNULL,
-    )
+    driver = subprocess.Popen(driver_command(address), stdout=subprocess.DEVNULL)
     ipi.wait()
     driver.wait()
 
