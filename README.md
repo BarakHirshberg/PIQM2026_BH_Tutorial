@@ -19,20 +19,22 @@ Two things make it far easier to run than the 2023 version:
 
 ## What you will do
 
-Simulate three non-interacting particles (mass 1) in a **3D isotropic harmonic
-trap** with force constant `k = 1.21647924e-8` Ha/Bohr², i.e. a trap frequency
-`ℏω₀ = 3 meV` (a very soft trap). Quantum statistics is switched on with a
-**one-line change** to the `<bosons>` tag in the i-PI input, and temperature is
-quoted in the natural dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in
-three steps:
+Simulate a few non-interacting particles (mass 1) — **three** in most sections,
+**four** in the statistics comparison — in a **3D isotropic harmonic trap** with
+force constant `k = 1.21647924e-8` Ha/Bohr², i.e. a trap frequency `ℏω₀ = 3 meV`
+(a very soft trap). Quantum statistics is switched on with a **one-line change**
+to the `<bosons>` tag in the i-PI input, and temperature is quoted in the natural
+dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in three steps:
 
 1. **Bosons and the energy–temperature curve.** Turn on exchange with
    `<bosons> [0, 1, 2]` and trace `⟨E⟩` across a sweep of temperatures,
    `βℏω₀ = 1, 2, 3, 5`, comparing the PIMD points against the exact curve and
    watching the energy settle onto the ground state at low `T`.
 2. **Switching statistics.** From the *same* input flip to `[]`
-   (distinguishable) or `[0, 1]` (a 2-boson + 1-distinguishable mixture) and
-   compare all three energies at one temperature (`βℏω₀ = 2`, i.e. 17.4 K).
+   (distinguishable), `[0, 1, 2, 3]` (four bosons), or `[0, 1, 2]` (three bosons
+   + one distinguishable) and compare the energies at one temperature
+   (`βℏω₀ = 2`, i.e. 17.4 K). This section uses **four** particles so the exchange
+   differences are large enough to resolve with short runs.
 3. **Fermions.** Reweight the bosonic run by the `fermionic_sign`, meet the
    **sign problem**, and average several trajectories to get an honest
    (sign-weighted) error bar. Run warmer (`βℏω₀ = 1.16`, 30 K) with fewer beads.
@@ -86,20 +88,29 @@ If you see `setup OK`, you are ready. If it fails, email
 
 ## During the tutorial: open the notebook
 
-Convert the recipe to a Jupyter notebook (proper markdown + rendered math, code
-in code cells) with sphinx-gallery's own converter, then run the cells top to
-bottom — the three figures appear inline:
+From the example folder (where your `./env` lives), convert the recipe to a
+Jupyter notebook (proper markdown + rendered math, code in code cells) with
+sphinx-gallery's own converter, then run the cells top to bottom — the four
+figures appear inline:
 
 ```bash
+cd PIQM2026_BH_Tutorial/examples/bosons-fermions-pimd
 conda activate ./env
-cd examples/bosons-fermions-pimd
 sphinx_gallery_py2jupyter bosons-fermions-pimd.py   # -> bosons-fermions-pimd.ipynb
 jupyter lab bosons-fermions-pimd.ipynb              # then Run -> Run All Cells
 ```
 
-The full run takes **~10–15 minutes** on a laptop (the fermion trajectories are
-the slow part). You can read all the text immediately; the figures fill in as the
-cells finish.
+The full run takes **~5–15 minutes** (the fermion trajectories are the slow
+part). You can read all the text immediately; the figures fill in as the cells
+finish.
+
+**Headless or remote (no browser)?** Run the notebook non-interactively, or just
+run the script for the printed numbers (figures are captured but not shown):
+
+```bash
+jupyter nbconvert --to notebook --execute bosons-fermions-pimd.ipynb   # runs every cell
+python bosons-fermions-pimd.py                                         # numbers only
+```
 
 > Use the sphinx-gallery converter, **not** `jupytext --to notebook`: jupytext
 > leaves the reStructuredText prose as raw comments inside code cells instead of
@@ -112,7 +123,7 @@ All dependencies are on PyPI, so a plain virtual environment works too:
 
 ```bash
 python -m venv env && source env/bin/activate
-pip install "ipi>=3.2.0" numpy matplotlib ase "chemiscope>=1.0"
+pip install "ipi>=3.2.0" numpy matplotlib
 cd examples/bosons-fermions-pimd && python bosons-fermions-pimd.py
 ```
 
@@ -127,7 +138,8 @@ examples/bosons-fermions-pimd/
 ├── environment.yml             # conda/pip dependencies
 ├── bosons-fermions-pimd.py     # the tutorial (sphinx-gallery format)
 ├── analysis.py                 # output reader + EXACT energies + fermionic reweighting + weighted error
-└── data/                       # the four i-PI input files
+├── scripts/                    # i-PI launching plumbing (run_ipi/run_parallel) + plotting helpers
+└── data/                       # the seven i-PI input files (3- and 4-particle cases)
 ```
 
 The example directory follows the
@@ -142,12 +154,16 @@ Each case is compared against the **exact** energy of non-interacting particles
 in a harmonic trap, computed in `analysis.py` from the canonical
 partition-function recursion (mHa):
 
-| Case | exact energy |
-|------|--------------|
-| 3 distinguishable (βℏω₀ = 2.00) | 0.6514 |
-| 3 bosons (βℏω₀ = 2.00) | 0.5803 |
-| 2 bosons + 1 dist (βℏω₀ = 2.00) | 0.6235 |
-| 3 fermions (βℏω₀ = 1.16) | **1.0530** |
+| Case | βℏω₀ | exact energy (mHa) |
+|------|------|--------------------|
+| 4 distinguishable | 2.00 | 0.869 |
+| 4 bosons | 2.00 | 0.749 |
+| 3 bosons + 1 dist | 2.00 | 0.798 |
+| 3 fermions | 1.16 | **1.0530** |
+
+(The statistics comparison uses four particles; the fermion case uses three. The
+boson energy–temperature sweep also uses three bosons, printed as `E / ℏω₀` at
+each `βℏω₀`.)
 
 > **Note.** The 2023 tutorial hard-coded an *incorrect* closed form for the
 > three-fermion energy (0.912 mHa). The correct value is **1.053 mHa**, verified
@@ -158,38 +174,33 @@ partition-function recursion (mHa):
 
 ## Fermions need averaging and careful error bars
 
-A single short fermionic run is nearly meaningless: the average sign is small
-(⟨s⟩ ≈ 0.3 — the **sign problem**), so the reweighted energy has a huge
-variance. The tutorial runs a handful of short trajectories and combines them
-with the **sign-weighted** estimator from the SI of Hirshberg, Invernizzi &
-Parrinello (*JCP* **152**, 171102, 2020): weight each trajectory by its total
-sign `W_j = Σ s`, use an effective sample size `n_eff = (Σ W)² / Σ W²`, and
+Fermionic averages come from simulating **bosons** and reweighting each sample by
+the fermionic sign `s`: `⟨A⟩_F = ⟨A s⟩ / ⟨s⟩`. When the average sign is small —
+the **sign problem** — this ratio has a large variance, so the tutorial runs
+several short trajectories and combines them with the **sign-weighted** estimator
+from the SI of Hirshberg, Invernizzi & Parrinello (*JCP* **152**, 171102, 2020).
+Each trajectory `j` is weighted by its total sign `W_j = Σ s`, with an effective
+sample size `n_eff`:
 
 ```
-Ē_F = Σ Wⱼ Eⱼ / Σ Wⱼ ,   σ² = n/(n−1) · Σ Wⱼ(Eⱼ−Ē_F)²/Σ Wⱼ ,   error = σ/√n_eff
+Ē_F = Σ Wⱼ Eⱼ / Σ Wⱼ ,   n_eff = (Σ Wⱼ)² / Σ Wⱼ² ,   error = σ_E / √n_eff
 ```
 
-Naively averaging the per-trajectory ratios with `std/√M` is *biased* (a
-low-weight trajectory gives a wild ratio yet counts equally). Post-processing 20
-trajectories × 5000 steps (exact 1.053 mHa):
+Trajectories carry unequal information (a small-sign trajectory has a
+poorly-determined ratio), so `n_eff < M` and the honest error bar is a little
+larger than `std/√M`. `weighted_average()` in `analysis.py` reduces to the plain
+mean + `std/√M` when the weights are equal, so the same code handles the
+sign-free bosons. At the tutorial's settings (three fermions, 30 K, βℏω₀ = 1.16,
+8 trajectories) this gives **1.06 ± 0.05 mHa vs the exact 1.053** (n_eff ≈ 7 of
+8) — bracketing the exact value.
 
-| estimator | mean (mHa) | error (mHa) |
-|-----------|-----------|-------------|
-| naive mean-of-ratios | 1.45 (biased high) | ± 0.32 |
-| SI weighted (using n_eff) | 1.11 | ± 0.09 (n_eff = 16 of 20) |
-
-The weighting removes the bias, and the weighted estimate **1.11 ± 0.09 agrees
-with the exact 1.053** within error. `weighted_average()` in `analysis.py`
-reduces to the plain mean + `std/√M` when weights are equal, so the same code
-handles bosons and the average sign.
-
-The tutorial runs are deliberately short and use only 12 beads for fermions —
-enough to *make sense*, not to be tightly converged. For production you would
-simply run more (and longer) trajectories, and increase the number of beads if
-needed; the estimators are the same. Building the compiled **f90 driver**
-(`i-pi-driver -m harm3d`, `make` in the i-PI source `drivers/f90`) makes such
-runs several times faster, and the recipe uses it automatically if it is on
-your `PATH`.
+The tutorial deliberately runs the fermions warm (30 K) and short. Going colder,
+or to more particles, shrinks the sign and blows up the per-trajectory scatter —
+the recipe shows this by repeating the run at βℏω₀ = 2, where the eight
+trajectories fly apart. For production you would run more (and longer)
+trajectories and, if needed, more beads. Building the compiled **f90 driver**
+(`i-pi-driver -m harm3d`, `make` in the i-PI source `drivers/f90`) speeds up
+heavier runs, and the recipe uses it automatically if it is on your `PATH`.
 
 ## Background and references
 
