@@ -60,38 +60,56 @@ equal weights (bosons, average sign). Checked (20 traj × 5000): naive
 mean-of-ratios is biased high (1.45) vs weighted 1.11; n_eff-based error is ~12%
 larger than assuming n=M. There is a dedicated recipe + README section on this.
 
-## Status of the "5.5-hour autonomous" task
+## Status (handoff — continue on a faster machine)
+
+Everything below is committed and pushed to
+`https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial` (branch `master`,
+HEAD = "Add reference/ appendix README..."). Working tree is clean.
 
 DONE:
-- [x] Found & fixed the wrong analytical reference (committed).
-- [x] Built + validated the f90 driver; wired auto-detection into the recipe;
-      `IPI_DRIVER` env in run_convergence.py (committed).
-- [x] Fixed a hang: run_convergence now polls for the i-PI socket before
-      launching the (non-retrying) f90 driver (committed).
-- [x] Bead sweep P=12/24/36/48 (light, 10 traj × 8000): values scatter
-      1.00–1.09 around exact 1.053, no clean Trotter trend — likely just
-      statistical; needs heavier sampling to be clean.
+- [x] **Root cause found & fixed**: wrong hard-coded 3-fermion benchmark
+      (0.912 → exact **1.053 mHa**), verified two independent ways. `analysis.py`
+      now uses the exact recursion (ξ=±1) for any N.
+- [x] SI weighted fermion error estimation in `analysis.py`
+      (`weighted_average`, `fermionic_trajectory_estimate`), unit-checked.
+- [x] f90 driver: build + validate + recipe **auto-detection**
+      (`driver_command()` uses `i-pi-driver -m harm3d` if on PATH, else
+      `i-pi-py_driver -m harmonic`). `IPI_DRIVER` env in run_convergence.py.
+- [x] Socket-race fix (poll for `/tmp/ipi_<addr>` before launching driver), in
+      both run_convergence.py and the recipe's `_run_seeded`.
+- [x] **Tutorial redesigned** per Barak's decisions (2026-07-16): NOT tightly
+      converged; keep it laptop-light and "make sense." Fermion section = one
+      short run (flagged unreliable) + a **light parallel multi-trajectory**
+      average (`run_fermion_ensemble`, 8 short trajectories, sign-weighted)
+      whose large-but-honest error bar brackets the exact value. All 0.912 →
+      1.053 fixed in recipe + README. Heavy runs moved to `reference/` appendix.
+- [x] `reference/README.md` appendix (benchmarks, bead scan, error check).
 
-IN PROGRESS / REMAINING (a background job may still be running here):
-- [ ] **Final well-sampled table** — `reference/run_final_table.sh` runs the 3
-      easy cases (P=32, 24 traj × 8000) + a fermion P-scan (12/24/48, 24 traj ×
-      16000) with the f90 driver. Output goes to `/tmp/final_table.log`. When it
-      finishes, put the converged numbers into the recipe's "Convergence"
-      table (currently a placeholder) and the "Error estimation" section
-      (currently still cites the OLD 0.912 exact — MUST update to 1.053), and
-      into the README table. Confirm all four cases agree with exact within error.
-- [ ] **Tutorial narrative pass**: update every remaining mention of 0.912 →
-      1.053; the fermion conclusion changes from "does not overlap / gap is
-      physical" to "agrees once the reference is fixed and errors are weighted".
-      Lines to fix in bosons-fermions-pimd.py: ~262 (table row) and ~305–322
-      (error-estimation numbers/conclusion). Same in README.md fermion section.
-- [ ] **End-to-end run** of the recipe with corrected refs + driver auto-detect
-      (~1.5 min with f90, ~4.5 min pip driver) to confirm it still works.
-- [ ] **Noob-grad-student agent test**: spawn an agent role-playing an
-      inexperienced i-PI user; have it create a FRESH conda env from the README
-      and run the whole tutorial, reporting friction points; then fix them.
-      Draft brief saved at (scratch, may be gone after restart) — re-derive from
-      this file: fresh `./env_noobtest`, follow only README, report + clean up.
+REMAINING (do these on the faster machine):
+- [ ] **VERIFY the recipe end-to-end** — this was NOT confirmed (the run was
+      cut off). Run it and check the new multi-trajectory cell works and the
+      numbers make sense:
+      `cd examples/bosons-fermions-pimd && MPLBACKEND=Agg python bosons-fermions-pimd.py`
+      (put the f90 `i-pi-driver` on PATH to make it fast). Expected: dist/boson/
+      mixed single runs near the exact values; fermion 8-traj weighted energy
+      ~1.0–1.1 mHa with a large error bar that brackets 1.053; two figures render.
+- [ ] **Finish the reference table** — `reference/run_final_table.sh` was
+      interrupted (slow machine). Partial results captured: dist 0.663±0.005,
+      bosons 0.591±0.005 (both ~2% high = finite-P(32)/dt(10) systematic, honest
+      and expected). Mixed + fermion P-scan (P=12/24/48) NOT done. Re-run on the
+      fast machine (`IPI_DRIVER=... bash reference/run_final_table.sh`) and drop
+      the real numbers into `reference/README.md` (it currently has representative
+      light-study bead-scan numbers as placeholders, clearly labelled).
+- [ ] **Noob-grad-student test**: spawn an agent role-playing an inexperienced
+      i-PI user; have it create a FRESH env (`./env_noobtest`) following ONLY
+      README.md, run the whole recipe, and report friction points; then fix them
+      and remove the test env. (Fresh env tests the pip-only path honestly.)
+
+Known open question (minor, not blocking): with tight statistics all cases sit
+~1–2% (≈2σ) above exact — a small finite-P(32)/dt(10 fs) systematic. Barak is
+fine with this; the tutorial is meant to "make sense," not be converged. If you
+ever want <1σ agreement, use more beads (P≥64) and/or smaller dt in the
+reference runs only.
 
 ## Gotchas / lessons
 - Soft trap: oscillation period ~1370 fs, so dt=1 fs needs millions of steps.
