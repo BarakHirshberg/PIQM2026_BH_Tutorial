@@ -39,9 +39,8 @@ dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in three ste
    **sign problem**, and average several trajectories to get an honest
    (sign-weighted) error bar. Run warmer (`βℏω₀ = 1.16`, 30 K) with fewer beads.
 
-The number of beads `P` needed grows with `βℏω₀`, so the boson sweep *scales* `P`
-with the inverse temperature rather than fixing it (a warm point needs far fewer
-beads than a cold one):
+Colder runs need more beads `P`, so instead of a fixed value we scale `P` with
+`βℏω₀`. Here are the conditions (`βℏω₀`, temperature, beads) used in each part:
 
 | `βℏω₀` | T (K) | beads `P` | role |
 |--------|-------|-----------|------|
