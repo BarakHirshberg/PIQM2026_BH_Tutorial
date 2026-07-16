@@ -10,10 +10,12 @@ simulations of **indistinguishable** particles -- bosons and fermions -- with
 "Bosonic and Fermionic PIMD" module of the `PIQM 2023 tutorial
 <https://github.com/i-pi/piqm2023-tutorial>`_, updated to i-PI 3.x.
 
-We simulate three non-interacting particles (mass 1) in a three-dimensional
+We simulate a few non-interacting particles (mass 1) in a three-dimensional
 isotropic harmonic trap with :math:`\\hbar\\omega_0 = 3\\,\\mathrm{meV}` (a very
-soft trap) and study how quantum statistics changes the average energy. We work
-in the natural dimensionless inverse temperature
+soft trap) and study how quantum statistics changes the average energy. Most of
+the tutorial uses three particles; the statistics-comparison section uses four,
+so the energy differences between the cases are large enough to see clearly. We
+work in the natural dimensionless inverse temperature
 :math:`\\beta\\hbar\\omega_0 = \\hbar\\omega_0 / k_\\mathrm{B}T`, so the whole
 problem is controlled by a single number.
 
@@ -32,10 +34,10 @@ The forces come from the built-in ``harmonic`` potential of i-PI's Python
 driver, so the whole recipe installs from PyPI -- no compiled driver required.
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import analysis
+from scripts import plots
 
 
 # %%
@@ -154,43 +156,7 @@ for bhw, P, m, e in zip(SWEEP_BHW, SWEEP_BEADS, sweep_e, sweep_err):
 # runs are short, so the error bars are sizeable; they are what makes a scattered
 # point "make sense" rather than look like a bug.
 
-bhw_fine = np.linspace(0.5, 5.5, 80)
-temps_fine = [analysis.temperature_for(b) for b in bhw_fine]
-
-fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
-ax.plot(
-    bhw_fine,
-    [analysis.analytical_energy(T, "bosonic") / omega0 for T in temps_fine],
-    "-",
-    color="C0",
-    label="bosons (exact)",
-)
-ax.plot(
-    bhw_fine,
-    [analysis.analytical_energy(T, "dist") / omega0 for T in temps_fine],
-    "--",
-    color="gray",
-    alpha=0.7,
-    label="distinguishable (exact)",
-)
-ax.axhline(4.5, ls=":", color="k", alpha=0.5)
-ax.text(
-    0.55, 4.62, r"ground state $4.5\,\hbar\omega_0$", fontsize=8, color="k", alpha=0.7
-)
-ax.errorbar(
-    SWEEP_BHW,
-    sweep_e,
-    yerr=sweep_err,
-    fmt="o",
-    color="C0",
-    ms=8,
-    capsize=4,
-    label="bosons (PIMD)",
-)
-ax.set_xlabel(r"$\beta\hbar\omega_0$")
-ax.set_ylabel(r"$\langle E\rangle\,/\,\hbar\omega_0$")
-ax.set_title("Three bosons in a harmonic trap")
-ax.legend()
+plots.plot_boson_energy_curve(SWEEP_BHW, sweep_e, sweep_err)
 
 
 # %%
@@ -198,22 +164,22 @@ ax.legend()
 # --------------------------------------------
 #
 # The whole point of the ``<bosons>`` tag is how *little* changes between cases.
-# From the very same input we now compare, at one temperature
-# (:math:`\beta\hbar\omega_0 = 2`, i.e. 17.4 K):
+# We now compare, at one temperature (:math:`\beta\hbar\omega_0 = 2`, i.e.
+# 17.4 K), **four** particles under three kinds of statistics. We use four here
+# (rather than the three of the other sections) so the exchange effect is large
+# enough that the energies separate clearly given these short runs:
 #
-# * **distinguishable** particles -- ``<bosons> []`` (empty list),
-# * **three bosons** -- ``<bosons> [0, 1, 2]``,
-# * a **mixture** -- ``<bosons> [0, 1]``: atoms 0 and 1 exchange, atom 2 does not.
+# * **distinguishable** -- ``<bosons> []`` (empty list),
+# * **four bosons** -- ``<bosons> [0, 1, 2, 3]``,
+# * a **mixture** -- ``<bosons> [0, 1, 2]``: atoms 0-2 exchange, atom 3 does not.
 #
-# Each is a separate template in ``data/`` differing only in that one line. We
-# run all three at the same temperature and number of beads and read off the
-# total energy. Concretely, that line is:
+# Each is a separate template in ``data/`` differing only in that one line:
 #
 # .. code-block:: xml
 #
-#     <bosons> []        </bosons>   <!-- distinguishable: no exchange -->
-#     <bosons> [0, 1, 2] </bosons>   <!-- three bosons: every pair may exchange -->
-#     <bosons> [0, 1]    </bosons>   <!-- mixture: 0,1 exchange, atom 2 stays distinct -->
+#     <bosons> []           </bosons>   <!-- distinguishable: no exchange -->
+#     <bosons> [0, 1, 2, 3] </bosons>   <!-- four bosons: every pair may exchange -->
+#     <bosons> [0, 1, 2]    </bosons>   <!-- mixture: 0-2 exchange, atom 3 stays distinct -->
 #
 # Exchange means the ring polymers of the listed atoms are allowed to connect
 # into longer rings; the atoms left out stay closed on themselves.
@@ -240,19 +206,19 @@ BHW_SWITCH = 2
 BEADS_SWITCH = 16
 T_SWITCH = analysis.temperature_for(BHW_SWITCH)
 
-# (label, input template, type for the exact reference)
+# (label, input template, (n_bosons, n_dist) for the exact reference)
 cases = [
-    ("distinguishable", "input_3dist.xml", "dist"),
-    ("bosons", "input_3bosons.xml", "bosonic"),
-    ("2 bosons + 1 dist", "input_2bosons1dist.xml", "mixed"),
+    ("distinguishable", "input_4dist.xml", (0, 4)),
+    ("4 bosons", "input_4bosons.xml", (4, 0)),
+    ("3 bosons + 1 dist", "input_3bosons1dist.xml", (3, 1)),
 ]
 jobs = [
     (
         xml,
-        f"switch-{ref}",
+        f"switch-{i}",
         dict(temp=T_SWITCH, nbeads=BEADS_SWITCH, total_steps=SWEEP_STEPS),
     )
-    for _, xml, ref in cases
+    for i, (_, xml, _) in enumerate(cases)
 ]
 outputs = run_parallel(jobs)
 
@@ -261,7 +227,7 @@ switch = [
 ]
 switch_sim = [m for m, _ in switch]
 switch_err = [e for _, e in switch]
-switch_ref = [analysis.analytical_energy(T_SWITCH, ref) for _, _, ref in cases]
+switch_ref = [analysis.mixture_energy(nb, nd, T_SWITCH) for _, _, (nb, nd) in cases]
 for (name, _, _), m, e, ref in zip(cases, switch_sim, switch_err, switch_ref):
     print(
         f"{name:20s} (T = {T_SWITCH:.1f} K): PIMD {m * 1e3:.3f} +/- {e * 1e3:.3f} mHa  "
@@ -270,25 +236,17 @@ for (name, _, _), m, e, ref in zip(cases, switch_sim, switch_err, switch_ref):
 
 # %%
 # Exchange orders the energies: at fixed temperature the bosonic energy is the
-# lowest, distinguishable is higher, and the mixture sits in between -- each PIMD
-# bar agreeing with its exact value within the (short-run) error bar.
+# lowest, distinguishable is highest, and the mixture sits in between. With four
+# particles the gaps are large enough to resolve with these short runs, and each
+# PIMD bar matches its exact value.
 
-labels = ["dist", "bosons", "2B+1D"]
-x = np.arange(len(labels))
-fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
-ax.bar(
-    x - 0.2,
-    np.array(switch_sim) * 1e3,
-    0.4,
-    yerr=np.array(switch_err) * 1e3,
-    capsize=4,
-    label="PIMD",
+plots.plot_statistics_bars(
+    ["dist", "4 bosons", "3B+1D"],
+    switch_sim,
+    switch_err,
+    switch_ref,
+    r"Four particles at $\beta\hbar\omega_0 = 2$ (17.4 K)",
 )
-ax.bar(x + 0.2, np.array(switch_ref) * 1e3, 0.4, label="exact")
-ax.set_xticks(x, labels)
-ax.set_ylabel("total energy / mHa")
-ax.set_title(r"Three particles at $\beta\hbar\omega_0 = 2$ (17.4 K)")
-ax.legend()
 
 
 # %%
@@ -328,16 +286,15 @@ ax.legend()
 # This is why the fermion input uses a higher temperature
 # (:math:`\beta\hbar\omega_0 = 1.16`, 30 K) and fewer beads (12).
 #
-# .. admonition:: The exact reference value
-#
-#    The exact three-fermion energy at 30 K is **1.053 mHa**, computed by
-#    ``analysis.analytical_energy`` from the canonical partition-function
-#    recursion (elementary symmetric polynomial, :math:`\xi=-1`). An earlier
-#    version of this tutorial used an incorrect hard-coded closed form that gave
-#    0.912 mHa; the value here is confirmed independently by brute-force
-#    enumeration of the three-fermion states. Note the Pauli exclusion principle
-#    lifts the fermionic ground state to :math:`6.5\,\hbar\omega_0`, well above
-#    the bosonic :math:`4.5\,\hbar\omega_0`.
+# .. note::
+#    **The exact reference value.** The exact three-fermion energy at 30 K is
+#    **1.053 mHa**, computed by ``analysis.analytical_energy`` from the canonical
+#    partition-function recursion (elementary symmetric polynomial,
+#    :math:`\xi=-1`). An earlier version of this tutorial used an incorrect
+#    hard-coded closed form that gave 0.912 mHa; the value here is confirmed
+#    independently by brute-force enumeration of the three-fermion states. Note
+#    the Pauli exclusion principle lifts the fermionic ground state to
+#    :math:`6.5\,\hbar\omega_0`, well above the bosonic :math:`4.5\,\hbar\omega_0`.
 
 # A fermion run is an ordinary bosonic run (input_3fermions.xml just adds the
 # fermionic_sign property); the fermionic energy comes out in analysis.
@@ -400,31 +357,7 @@ print(f"  (effective sample size n_eff = {n_eff:.1f} of 8)")
 # distinguishable/bosonic runs above, whose single short runs were already close
 # because there is no sign to fight.
 
-fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
-ax.axhline(fer_ref * 1e3, color="k", ls="--", label="exact (1.053 mHa)")
-ax.plot(
-    np.zeros_like(fer_traj) + 0.15 * (np.arange(len(fer_traj)) - 3.5) / 3.5,
-    fer_traj * 1e3,
-    "o",
-    color="gray",
-    alpha=0.6,
-    label="individual trajectories",
-)
-ax.errorbar(
-    [0],
-    [fer_mean * 1e3],
-    yerr=[fer_err * 1e3],
-    fmt="s",
-    color="C0",
-    ms=9,
-    capsize=5,
-    label="sign-weighted mean",
-)
-ax.set_xlim(-1, 1)
-ax.set_xticks([])
-ax.set_ylabel("fermionic total energy / mHa")
-ax.set_title("Three fermions at 30 K: one run vs. eight")
-ax.legend()
+plots.plot_fermion_ensemble(fer_traj, fer_mean, fer_err, fer_ref)
 
 
 # %%
@@ -458,24 +391,18 @@ ax.legend()
 # functions the 8-trajectory demo above used.
 #
 # Running many more trajectories (here 20 of 5000 steps) makes the difference
-# between the two estimators obvious (exact value 1.053 mHa):
-#
-# ==========================  =====================  =============================
-# estimator                   mean (mHa)             error (mHa)
-# ==========================  =====================  =============================
-# naive mean-of-ratios        1.45  (biased high)    :math:`\pm 0.32`
-# SI weighted, assuming n=M    1.11                   :math:`\pm 0.078`
-# SI weighted, using n_eff     1.11                   :math:`\pm 0.087`  (n_eff=16 of 20)
-# ==========================  =====================  =============================
-#
-# Two lessons: the weighting **removes the bias** in the mean (the naive
-# mean-of-ratios sits at 1.45, the weighted estimate at 1.11), and using the
-# effective sample size gives an **honest, ~12% larger** error bar
-# (:math:`\sqrt{M/n_\mathrm{eff}}`) than pretending all :math:`M` trajectories
-# are equally informative. The weighted estimate 1.11 :math:`\pm` 0.09 agrees
-# with the exact 1.053 mHa within its error bar -- there is *no* mysterious
-# fermionic discrepancy once (i) the correct benchmark is used and (ii) the
-# statistical error is estimated properly.
+# between the two estimators obvious. The naive mean-of-ratios is **biased high**,
+# :math:`1.45 \pm 0.32` mHa, while the sign-weighted estimator gives
+# :math:`1.11` mHa; using the effective sample size
+# (:math:`n_\mathrm{eff} = 16` of 20) rather than pretending all 20 trajectories
+# are equally informative widens its error bar honestly from
+# :math:`\pm 0.078` to :math:`\pm 0.087` mHa. So the two lessons are that the
+# weighting **removes the bias** in the mean, and :math:`n_\mathrm{eff}` gives an
+# **honest, ~12% larger** error bar (:math:`\sqrt{M/n_\mathrm{eff}}`). The
+# weighted estimate :math:`1.11 \pm 0.09` mHa agrees with the exact 1.053 mHa
+# within its error bar -- there is *no* mysterious fermionic discrepancy once
+# (i) the correct benchmark is used and (ii) the statistical error is estimated
+# properly.
 #
 # The runs in this tutorial are deliberately short and use only 12 beads for the
 # fermions -- enough to "make sense", not to be tightly converged. For production

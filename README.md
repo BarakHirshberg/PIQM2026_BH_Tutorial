@@ -54,46 +54,57 @@ E(bosons) < E(distinguishable) < E(fermions), and meet the fermionic **sign
 problem** — where a single short run is nearly useless and you must average
 several trajectories with a proper (sign-weighted) error bar.
 
-## Quick start (conda — recommended for the tutorial)
+## Before the tutorial: set up and verify (please do this ahead of time)
+
+Set up **before the meeting** — installing at the venue over shared WiFi is slow
+and failure-prone. You need `conda` (Miniconda or Anaconda).
 
 ```bash
-git clone https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial && cd PIQM2026_BH_Tutorial
+# 1. clone and enter the example folder
+git clone https://github.com/BarakHirshberg/PIQM2026_BH_Tutorial
+cd PIQM2026_BH_Tutorial/examples/bosons-fermions-pimd
 
-# create a local environment (a folder ./env, keeps your base conda clean)
-conda env create --prefix ./env --file examples/bosons-fermions-pimd/environment.yml
+# 2. create a local environment (a ./env folder; keeps your base conda clean)
+conda env create --prefix ./env --file environment.yml
 conda activate ./env
 
-# run the whole recipe (a few minutes on a laptop)
-cd examples/bosons-fermions-pimd
-python bosons-fermions-pimd.py
+# 3. tools to read/run it as a notebook
+pip install sphinx-gallery jupyterlab
 ```
 
-The script runs the boson temperature sweep, the single-temperature statistics
-comparison, and the fermionic single-run + multi-trajectory average, printing
-each PIMD energy next to the **exact** value and saving the figures.
+**Verify (≈15 s).** This runs a tiny 50-step simulation end to end — the i-PI
+server, the force driver, and their socket — and should print `setup OK`:
 
-### Run it as a notebook
+```bash
+python -c "import analysis; from scripts.ipi_runs import run_ipi; \
+o = run_ipi('input_3bosons.xml', total_steps=50, nbeads=8); \
+print('setup OK' if analysis.read_ipi_output(o).get('potential') is not None else 'FAIL')"
+```
 
-The recipe is a sphinx-gallery script (`# %%` cells, with the prose written as
-reStructuredText comments). Convert it to a notebook with **proper markdown
-cells** — rendered text and math, code in code cells — using sphinx-gallery's own
-converter, then open it and run the cells top to bottom (the three figures appear
-inline):
+If you see `setup OK`, you are ready. If it fails, email
+<barak.hirshberg@gmail.com> with the error message **before** the meeting.
+
+## During the tutorial: open the notebook
+
+Convert the recipe to a Jupyter notebook (proper markdown + rendered math, code
+in code cells) with sphinx-gallery's own converter, then run the cells top to
+bottom — the three figures appear inline:
 
 ```bash
 conda activate ./env
-pip install sphinx-gallery jupyterlab
 cd examples/bosons-fermions-pimd
 sphinx_gallery_py2jupyter bosons-fermions-pimd.py   # -> bosons-fermions-pimd.ipynb
 jupyter lab bosons-fermions-pimd.ipynb              # then Run -> Run All Cells
 ```
 
-> Use the sphinx-gallery converter, **not** `jupytext --to notebook`: jupytext
-> does not translate the reStructuredText prose, so the text ends up as raw
-> comments inside code cells instead of rendered markdown.
+The full run takes **~10–15 minutes** on a laptop (the fermion trajectories are
+the slow part). You can read all the text immediately; the figures fill in as the
+cells finish.
 
-In **VS Code** you can instead open the `.py` directly — the `# %%` markers give
-"Run Cell" buttons — though the prose shows as comments rather than markdown.
+> Use the sphinx-gallery converter, **not** `jupytext --to notebook`: jupytext
+> leaves the reStructuredText prose as raw comments inside code cells instead of
+> rendered markdown. In **VS Code** you can instead open the `.py` directly (the
+> `# %%` markers give "Run Cell" buttons), though the prose shows as comments.
 
 ### Pip-only alternative (no conda)
 

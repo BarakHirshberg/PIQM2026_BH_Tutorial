@@ -284,3 +284,21 @@ def analytical_energy(temp=17.4, sys_type="dist"):
         e = get_harmonic_energy(3, bhw, DIM, "dist")
 
     return e * omega  # convert from units of hbar*omega back to Hartree
+
+
+def mixture_energy(n_bosons, n_dist, temp=17.4):
+    """Exact mean total energy (Ha) of ``n_bosons`` bosons plus ``n_dist``
+    distinguishable particles in the trap. Non-interacting, so the two groups add.
+
+    Covers the four-particle statistics comparison: ``mixture_energy(0, 4)`` (all
+    distinguishable), ``mixture_energy(3, 1)`` (three bosons + one dist), and
+    ``mixture_energy(4, 0)`` (all bosons).
+    """
+    omega = omega0()
+    bhw = omega / (temp * KELVIN_TO_HARTREE)
+    e = 0.0
+    if n_bosons:
+        e += get_harmonic_energy(n_bosons, bhw, DIM, "bosonic")
+    if n_dist:
+        e += get_harmonic_energy(n_dist, bhw, DIM, "dist")
+    return e * omega
