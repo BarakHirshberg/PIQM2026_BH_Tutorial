@@ -12,14 +12,16 @@ Two things make it far easier to run than the 2023 version:
 * **No compilation, no special branch.** Everything installs from PyPI. i-PI 3.x
   ships a pure-Python driver (`i-pi-py_driver`) with a built-in `harmonic`
   potential, so there is no Fortran to build. (If the compiled `i-pi-driver` is
-  on your `PATH`, the recipe auto-detects and uses it — a few times faster.)
+  on your `PATH`, the recipe auto-detects and uses it, though for this tiny
+  three-atom system it makes little difference — i-PI's per-step overhead
+  dominates, not the force evaluation.)
 * **Native fermions.** i-PI 3.x records the `fermionic_sign` directly, so the
   hand-written reweighting module (and its `MDAnalysis` dependency) is gone —
   fermionic averages are two lines of NumPy.
 
 ## What you will do
 
-Simulate a few non-interacting particles (mass 1) — **three** in most sections,
+Simulate a few non-interacting particles ($m=1$) — **three** in most sections,
 **four** in the statistics comparison — in a **3D isotropic harmonic trap** with
 force constant `k = 1.21647924e-8` Ha/Bohr², i.e. a trap frequency `ℏω₀ = 3 meV`
 (a very soft trap). Quantum statistics is switched on with a **one-line change**
@@ -139,7 +141,7 @@ examples/bosons-fermions-pimd/
 ├── bosons-fermions-pimd.py     # the tutorial (sphinx-gallery format)
 ├── analysis.py                 # output reader + EXACT energies + fermionic reweighting + weighted error
 ├── scripts/                    # i-PI launching plumbing (run_ipi/run_parallel) + plotting helpers
-└── data/                       # the seven i-PI input files (3- and 4-particle cases)
+└── data/                       # the five i-PI input files (3- and 4-particle cases)
 ```
 
 The example directory follows the
