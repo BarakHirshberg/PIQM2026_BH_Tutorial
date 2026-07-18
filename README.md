@@ -25,8 +25,11 @@ Simulate a few non-interacting particles ($m=1$) — **three** in most sections,
 **four** in the statistics comparison — in a **3D isotropic harmonic trap** with
 force constant `k = 1.21647924e-8` Ha/Bohr², i.e. a trap frequency `ℏω₀ = 3 meV`
 (a very soft trap). Quantum statistics is switched on with a **one-line change**
-to the `<bosons>` tag in the i-PI input, and temperature is quoted in the natural
-dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in three steps:
+to the `<bosons>` tag in the i-PI input (bosonic runs also set
+`propagator='bab'` — the only free ring-polymer propagator i-PI implements for
+exchange; `exact`/`cayley` raise an error with `<bosons>`), and temperature is
+quoted in the natural dimensionless unit `βℏω₀ = ℏω₀ / k_B T`. The tutorial is in
+three steps:
 
 1. **Bosons and the energy–temperature curve.** Turn on exchange with
    `<bosons> [0, 1, 2]` and trace `⟨E⟩` across a sweep of temperatures,

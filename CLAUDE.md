@@ -128,6 +128,50 @@ Known open question (minor, not blocking): short runs scatter a few % around
 exact; the block-averaged error bars are what make that "make sense." Tightening
 would need many more (or longer) steps — expensive, and not the point.
 
+## Session 2026-07-18 — units, propagator, block averaging (all on master, pushed)
+
+All committed & pushed to `master` this session (`git pull` to get them):
+- **Energies now in ℏω₀ everywhere** (was mHa in places): all 4 figures
+  (`scripts/plots.py`), the switching + fermion **printouts** in the recipe, and
+  the README benchmark table (7.88 / 6.79 / 7.23 / **9.55**). Recorded under
+  ## Conventions. The one mHa kept parenthetically is the 1.053 mHa fermion
+  benchmark = 9.55 ℏω₀. `plots.py` also renamed unused `label`→`_label`.
+- **README cleanups**: "(mass 1)" → "$m=1$"; corrected the f90 "a few times
+  faster" claim (it is NOT faster for this tiny system); pruned 2 dead inputs
+  (`input_3dist`, `input_2bosons1dist`) → `data/` now has 5 files ("seven"→"five").
+- **Propagator note added** (tutorial intro): bosons REQUIRE `propagator='bab'`.
+  Verified in i-PI **3.3.0**: `engine/normalmodes.py::free_qstep` raises
+  `NotImplementedError` for `exact`/`cayley` when `<bosons>` is set, and the input
+  default propagator is `exact`, so bab must be set explicitly (doc:
+  `inputs/normalmodes.py` propagator help).
+- **Atom ordering is NOT constrained** in i-PI 3.3.0 (checked; no change needed):
+  `utils/exchange.py` reads boson coords via fancy indexing
+  `beads.q.reshape(...)[:, self.bosons]`, masses `beads.m[self.bosons]`, forces
+  written back at `fspring[:, self.bosons, :]`. Bosons may be any indices,
+  contiguous or not; distinguishables may precede them.
+- **block_average n_blocks=10 justified** (was arbitrary): Flyvbjerg–Petersen
+  blocking on fresh trajectories → total-energy autocorrelation time ~25–55 steps,
+  so ~500-step blocks (10 blocks of ~5000 samples) ≈ 10–20 τ. Documented in the
+  docstring; kept FIXED (not recomputed per call, per Barak). Warmest points
+  (βℏω₀=1,2, incl. the switching condition) are near the resolution limit of a
+  6000-step run — their bars are mild lower bounds.
+- **Content review done** (two agents): the physics reviewer VERIFIED the tutorial
+  is correct (4.5/6.5 ℏω₀ ground states, 1.053 mHa, conversions, ordering,
+  estimator math). Pedagogy findings were deferred (Barak: "not serious"). The
+  full list is parked in the plan file `humble-napping-wall.md`. Don't redo.
+
+**Notebook viewer (was running this session in /tmp — GONE after a restart).**
+A fully-executed `bosons-fermions-pimd.ipynb` was served via `jupyter lab` on
+`127.0.0.1:8888` (token `piqm2026`) and viewed over SSH/Termius port-forwarding.
+The server and its conda env live under the session scratchpad (`.nox/…`), which
+`/tmp` wipes on restart. To view again in a fresh session: get an env with
+`i-pi + numpy + matplotlib + jupyterlab + sphinx-gallery`, then
+`sphinx_gallery_py2jupyter bosons-fermions-pimd.py`,
+`jupyter nbconvert --to notebook --execute --inplace bosons-fermions-pimd.ipynb`
+(~15 min), then `jupyter lab --no-browser --port=8888 --ip=127.0.0.1
+--ServerApp.token=piqm2026 --ServerApp.root_dir=<example dir>` and port-forward
+8888 in Termius. (The `.ipynb` is gitignored; it is a build artifact.)
+
 ## Cookbook contribution (Phase 2) — PR opened 2026-07-16
 
 Submitted upstream as **[lab-cosmo/atomistic-cookbook#292](https://github.com/lab-cosmo/atomistic-cookbook/pull/292)**
@@ -137,6 +181,26 @@ Submitted upstream as **[lab-cosmo/atomistic-cookbook#292](https://github.com/la
 `build_website` both succeed, recipe runs in ~2–3 min, no example-specific sphinx
 warnings. CI on the PR waits for a maintainer "approve and run" (first-time fork
 contributor).
+
+**PR status update (2026-07-18):** CI's **lint** job failed on the first commit
+(the cookbook runs flake8 `--max-line-length=88` + flake8-bugbear + blackdoc +
+`ruff format --check` — stricter than the `ruff check` used locally: 3× E501,
+1× B007). Maintainer **Michele Ceriotti (`ceriottm`) pushed a fix commit directly
+to the PR branch** ("Please the lint gods", `204ce238`) fixing all four — but it
+also introduced a typo, `centroid-viria   l` at `bosons-fermions-pimd.py:195`
+(should be `centroid-virial`). The one-word typo fix was applied and lint-verified
+in a fresh fork clone at **`~/atomistic-cookbook`** (branch `add-bosons-fermions-pimd`,
+based on Michele's commit); whether Barak pushed it is unconfirmed — check
+`git -C ~/atomistic-cookbook log --oneline` and the PR. The "Documentation" CI red
+was NOT ours: our `generate-example` job passed; the failing `build-and-publish`
+step ("Download latest main branch built examples") is repo infra. Lint like CI
+locally with `flake8 --max-line-length=88 --extend-ignore=E203` + `ruff format
+--check` + `blackdoc --check` (NOT just `ruff check`).
+
+**Master has since moved ahead of the cookbook** (the 2026-07-18 changes above:
+ℏω₀ units in plots + printouts, the `propagator='bab'` note, the block_average
+justification). When re-syncing, mirror those too — the cookbook notebook still
+prints mHa and lacks the propagator note.
 
 Cookbook version diverges from master on purpose (master kept untouched):
 - shorter steps for the 12-min CI budget (`SWEEP_STEPS=1500`, `FERMION_STEPS=2000`,
