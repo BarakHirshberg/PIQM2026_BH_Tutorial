@@ -91,6 +91,16 @@ def block_average(series, n_blocks=10):
     time the block means are approximately independent, and the standard error
     is their spread, ``std(block_means)/sqrt(n_blocks)``.
 
+    The default ``n_blocks=10`` was fixed once, from a Flyvbjerg-Petersen
+    blocking analysis of these trajectories (not recomputed each call): the
+    integrated autocorrelation time of the total energy is ~25-55 steps, so with
+    ~5000 samples per run, 10 blocks give ~500-step blocks -- roughly 10-20
+    correlation times, long enough that the block means are effectively
+    independent while keeping enough blocks for a meaningful spread. Using many
+    more (shorter) blocks would drop below the correlation time and understate
+    the error. The two warmest points (betahbaromega0 = 1, 2) are the most
+    correlated and sit near this resolution limit for a 6000-step run.
+
     Returns ``(mean, error)``.
     """
     series = np.asarray(series, dtype=float)
