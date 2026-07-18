@@ -187,6 +187,12 @@ pruned inputs, analysis.py→scripts/). To re-validate: build a nox venv with
   (binary lands at `i-pi/bin/i-pi-driver`; put its dir on PATH).
 
 ## Conventions
+- **Energy units: always ℏω₀** in every figure AND every printout (divide the Ha
+  value by `analysis.omega0()`), not mHa — so all panels/outputs are directly
+  comparable. The plot helpers in `scripts/plots.py` convert internally; the
+  recipe's `print()`s do it inline. The README benchmark table is in ℏω₀ too. The
+  one mHa value kept (parenthetically) is the 1.053 mHa fermion benchmark
+  (= 9.55 ℏω₀), since it's the recognizable KEY-FINDING number.
 - Verify with the conda env at `./env` (gitignored). Activate:
   `source ~/miniconda3/etc/profile.d/conda.sh && conda activate ./env`.
   (On a machine without that conda, make a scratch venv `./env_verify` —

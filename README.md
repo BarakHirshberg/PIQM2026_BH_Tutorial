@@ -153,18 +153,19 @@ that renders to a notebook + HTML page).
 
 Each case is compared against the **exact** energy of non-interacting particles
 in a harmonic trap, computed in `analysis.py` from the canonical
-partition-function recursion (mHa):
+partition-function recursion, in units of the trap quantum `ℏω₀`:
 
-| Case | βℏω₀ | exact energy (mHa) |
-|------|------|--------------------|
-| 4 distinguishable | 2.00 | 0.869 |
-| 4 bosons | 2.00 | 0.749 |
-| 3 bosons + 1 dist | 2.00 | 0.798 |
-| 3 fermions | 1.16 | **1.0530** |
+| Case | βℏω₀ | exact energy (`ℏω₀`) |
+|------|------|----------------------|
+| 4 distinguishable | 2.00 | 7.88 |
+| 4 bosons | 2.00 | 6.79 |
+| 3 bosons + 1 dist | 2.00 | 7.23 |
+| 3 fermions | 1.16 | **9.55** |
 
-(The statistics comparison uses four particles; the fermion case uses three. The
-boson energy–temperature sweep also uses three bosons, printed as `E / ℏω₀` at
-each `βℏω₀`.)
+(The statistics comparison uses four particles; the fermion case uses three; the
+boson energy–temperature sweep uses three bosons. All energies — figures,
+printouts, and this table — are in units of `ℏω₀`; the three-fermion value
+9.55 `ℏω₀` equals 1.053 mHa.)
 
 ## Fermions need averaging and careful error bars
 
@@ -185,7 +186,7 @@ poorly-determined ratio), so `n_eff < M` and the honest error bar is a little
 larger than `std/√M`. `weighted_average()` in `analysis.py` reduces to the plain
 mean + `std/√M` when the weights are equal, so the same code handles the
 sign-free bosons. At the tutorial's settings (three fermions, 30 K, βℏω₀ = 1.16,
-8 trajectories) this gives **1.06 ± 0.05 mHa vs the exact 1.053** (n_eff ≈ 7 of
+8 trajectories) this gives **9.6 ± 0.5 `ℏω₀` vs the exact 9.55** (n_eff ≈ 7 of
 8) — bracketing the exact value.
 
 The tutorial deliberately runs the fermions warm (30 K) and short. Going colder,
