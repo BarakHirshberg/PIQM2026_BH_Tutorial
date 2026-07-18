@@ -69,6 +69,13 @@ from scripts import plots
 # quadratic-scaling algorithm of Hirshberg *et al.*
 # (`PNAS 2019 <https://doi.org/10.1073/pnas.1913365116>`_) and Feldman &
 # Hirshberg (`JCP 2023 <https://doi.org/10.1063/5.0173749>`_).
+#
+# .. note::
+#    **Bosons require** ``propagator='bab'``. i-PI's *default* free ring-polymer
+#    propagator is the ``exact`` normal-mode propagator, but bosonic exchange is
+#    implemented only for the Cartesian ``bab`` (Verlet-type) propagator -- pairing
+#    ``<bosons>`` with the ``exact`` or ``cayley`` propagator raises an error. This
+#    is why every input in this tutorial sets ``propagator='bab'`` explicitly.
 
 
 # %%
