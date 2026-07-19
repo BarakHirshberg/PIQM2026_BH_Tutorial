@@ -172,7 +172,7 @@ The server and its conda env live under the session scratchpad (`.nox/…`), whi
 --ServerApp.token=piqm2026 --ServerApp.root_dir=<example dir>` and port-forward
 8888 in Termius. (The `.ipynb` is gitignored; it is a build artifact.)
 
-## Cookbook contribution (Phase 2) — PR opened 2026-07-16
+## Cookbook contribution (Phase 2) — #292 MERGED, follow-up #294 open
 
 Submitted upstream as **[lab-cosmo/atomistic-cookbook#292](https://github.com/lab-cosmo/atomistic-cookbook/pull/292)**
 (base `main`, head `BarakHirshberg:add-bosons-fermions-pimd`, 14 files, +1391/-0).
@@ -182,58 +182,61 @@ Submitted upstream as **[lab-cosmo/atomistic-cookbook#292](https://github.com/la
 warnings. CI on the PR waits for a maintainer "approve and run" (first-time fork
 contributor).
 
-**PR status update (2026-07-18):** CI's **lint** job failed on the first commit
+**#292 MERGED (2026-07-18, merge commit `6e99c2f`).** Its lint job failed first
 (the cookbook runs flake8 `--max-line-length=88` + flake8-bugbear + blackdoc +
-`ruff format --check` — stricter than the `ruff check` used locally: 3× E501,
-1× B007). Maintainer **Michele Ceriotti (`ceriottm`) pushed a fix commit directly
-to the PR branch** ("Please the lint gods", `204ce238`) fixing all four — but it
-also introduced a typo, `centroid-viria   l` at `bosons-fermions-pimd.py:195`
-(should be `centroid-virial`). The one-word typo fix was applied and lint-verified
-in a fresh fork clone at **`~/atomistic-cookbook`** (branch `add-bosons-fermions-pimd`,
-based on Michele's commit); whether Barak pushed it is unconfirmed — check
-`git -C ~/atomistic-cookbook log --oneline` and the PR. The "Documentation" CI red
-was NOT ours: our `generate-example` job passed; the failing `build-and-publish`
-step ("Download latest main branch built examples") is repo infra. Lint like CI
-locally with `flake8 --max-line-length=88 --extend-ignore=E203` + `ruff format
---check` + `blackdoc --check` (NOT just `ruff check`).
+`ruff format --check` — stricter than `ruff check`: 3× E501, 1× B007); Michele
+Ceriotti (`ceriottm`) pushed a fix ("Please the lint gods", `204ce238`) that
+introduced a `centroid-virial` typo, Barak pushed the one-word fix, and it merged.
+**During review the helper modules were moved into `data/`** (not `scripts/`):
+the merged example has `data/analysis.py`, `data/plots.py`, `data/ipi_runs.py`,
+`data/__init__.py`, imported as `from data import analysis, plots` /
+`from data.ipi_runs import run_parallel` (`plots.py` uses `from . import analysis`).
+Lint like CI locally with `flake8 --max-line-length=88 --extend-ignore=E203` +
+`ruff format --check` + `blackdoc --check` (NOT just `ruff check`).
 
-**Master has since moved ahead of the cookbook** (the 2026-07-18 changes above:
-ℏω₀ units in plots + printouts, the `propagator='bab'` note, the block_average
-justification). When re-syncing, mirror those too — the cookbook notebook still
-prints mHa and lacks the propagator note.
+**Master's 2026-07-18 changes were synced into the merged cookbook via follow-up
+[PR #294](https://github.com/lab-cosmo/atomistic-cookbook/pull/294)** (branch
+`sync-hw0-units-propagator` off upstream/main, 3 files, +42/-20, lint-clean):
+ℏω₀ units in the remaining figures + printouts, the `propagator='bab'` note, and
+the block_average one-line note. Cookbook-only deltas (1500/2000 steps, the
+step-count note, `data/` layout, trimmed inputs) preserved. OPEN, awaiting CI/merge.
+Fork clone with both branches lives at `~/atomistic-cookbook` (origin=fork,
+upstream=lab-cosmo).
 
 Cookbook version diverges from master on purpose (master kept untouched):
 - shorter steps for the 12-min CI budget (`SWEEP_STEPS=1500`, `FERMION_STEPS=2000`,
   `SKIP=300`) + a `.. note::` telling readers to increase them;
 - dropped `ase`/`chemiscope` from `environment.yml` (unused);
 - pruned 2 dead 3-particle inputs (`input_3dist`, `input_2bosons1dist`);
-- **`analysis.py` moved into `scripts/`** so sphinx-gallery (pattern `.*`, scans
-  top-level `.py` only) does not render it as a titleless gallery page — every
-  other cookbook example has exactly one top-level recipe `.py`. Imports became
-  `from scripts import analysis` (recipe) and `from . import analysis` (plots.py).
-  Master still has `analysis.py` at top level (harmless there — no gallery build);
-  the two tracks are allowed to differ.
+- **helper modules live in `data/`** (`data/analysis.py`, `data/plots.py`,
+  `data/ipi_runs.py`, `data/__init__.py`) — a maintainer moved them there during
+  the #292 review so sphinx-gallery (pattern `.*`, top-level `.py` only) renders
+  just the one recipe `.py`. Imports: `from data import analysis, plots` /
+  `from data.ipi_runs import run_parallel` (`plots.py`: `from . import analysis`).
+  Master keeps `analysis.py` top-level + `scripts/` for the rest; layouts differ.
 
 Fork/PR mechanics on THIS machine: nox needs Python ≥3.9 (`list[Path]` in
 `src/get_examples.py`) — build the nox venv with `/home/hirshb/miniconda/bin/python`
 (3.13), NOT the 3.8 conda envs. `venv_backend="conda"` needs a conda supporting
 `--solver=libmamba` (miniconda's 25.x, not anaconda3's old conda) with accepted
-channel ToS (`conda tos accept` for pkgs/main + pkgs/r, already done). Fork clone +
-noxvenv live under the session scratchpad.
+channel ToS (`conda tos accept` for pkgs/main + pkgs/r, already done). Persistent
+fork clone at `~/atomistic-cookbook`; the noxvenv for local lint is under the
+session scratchpad (wiped on restart).
 
-**Resuming PR work in a later session** (the scratchpad fork clone is gone —
-`/tmp` is wiped on restart, but the branch is safe on GitHub):
+**Resuming cookbook work later** (#292 is merged; the example lives on upstream
+`main`). For further changes, branch off **upstream/main** and open a **new** PR
+(as #294 did) — do NOT push to the merged `add-bosons-fermions-pimd`:
 ```bash
-gh repo clone BarakHirshberg/atomistic-cookbook   # or: git clone + add upstream
-cd atomistic-cookbook && git checkout add-bosons-fermions-pimd
-# edit under examples/bosons-fermions-pimd/, commit, then:
-git push origin add-bosons-fermions-pimd          # updates PR #292 automatically
+cd ~/atomistic-cookbook          # origin=fork, upstream=lab-cosmo
+git fetch upstream main && git checkout -b <topic> upstream/main
+# edit under examples/bosons-fermions-pimd/ (helpers in data/), commit, then:
+git push origin <topic>
+gh pr create --repo lab-cosmo/atomistic-cookbook --base main \
+  --head BarakHirshberg:<topic>
 ```
-The example dir there is the source of truth for the cookbook version; to re-sync
-it FROM master, copy master's `examples/bosons-fermions-pimd/` over it, then
-re-apply the four cookbook-only deltas listed above (steps/note, env.yml,
-pruned inputs, analysis.py→scripts/). To re-validate: build a nox venv with
-`/home/hirshb/miniconda/bin/python`, put miniconda's conda on PATH, and run
+Lint like CI before pushing (`flake8 --max-line-length=88 --extend-ignore=E203`
++ `ruff format --check` + `blackdoc --check`). To re-validate the build: nox venv
+with `/home/hirshb/miniconda/bin/python`, miniconda's conda on PATH,
 `nox -e bosons-fermions-pimd`.
 
 ## Gotchas / lessons
